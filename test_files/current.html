@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Current Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        header {
+            background-color: #34a853;  /* Color changed from blue to green */
+            color: white;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;  /* Increased border radius */
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);  /* Added shadow */
+        }
+        .btn {
+            background-color: #34a853;  /* Color changed to match header */
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Product Showcase</h1>
+    </header>
+    
+    <div class="container">
+        <div class="card" id="product1">
+            <h2>Premium Headphones</h2>
+            <p>High-quality audio with noise cancellation technology.</p>
+            <p class="price"><strong>$179.99</strong></p>  <!-- Price changed -->
+            <button class="btn">Add to Cart</button>
+        </div>
+        
+        <div class="card" id="product2">
+            <h2>Smart Watch</h2>
+            <p>Track your fitness goals and stay connected.</p>
+            <p class="price">$149.99</p>
+            <button class="btn">Add to Cart</button>
+        </div>
+        
+        <div class="card" id="product3">
+            <h2>Wireless Earbuds</h2>
+            <p>Compact design with powerful sound quality.</p>
+            <p class="price">$89.99</p>
+            <button class="btn">Add to Cart</button>
+        </div>
+        
+        <!-- New product added -->
+        <div class="card" id="product4">
+            <h2>Bluetooth Speaker</h2>
+            <p>Portable speaker with 10-hour battery life.</p>
+            <p class="price">$59.99</p>
+            <button class="btn">Add to Cart</button>
+        </div>
+    </div>
+    
+    <footer>
+        <p>&copy; 2025 Product Showcase. All rights reserved.</p>
+    </footer>
+</body>
+</html>
