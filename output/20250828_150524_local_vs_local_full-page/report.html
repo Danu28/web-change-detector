@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOM/CSS Change Detection Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .critical { color: #dc3545; }
+        .cosmetic { color: #fd7e14; }
+        .noise { color: #6c757d; }
+        .changes-section {
+            padding: 30px;
+        }
+        .change-item {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .change-header {
+            padding: 15px 20px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .change-header.critical { background-color: #f8d7da; color: #721c24; }
+        .change-header.cosmetic { background-color: #ffeaa7; color: #856404; }
+        .change-header.noise { background-color: #e2e3e5; color: #383d41; }
+        .change-details {
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .change-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .value-box {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .value-box.old { border-color: #dc3545; }
+        .value-box.new { border-color: #28a745; }
+        .confidence-badge {
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .filter-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .filter-button.all { background: #6c757d; color: white; }
+        .filter-button.critical { background: #dc3545; color: white; }
+        .filter-button.cosmetic { background: #fd7e14; color: white; }
+        .filter-button.noise { background: #6c757d; color: white; }
+        .filter-button.active { box-shadow: 0 0 0 3px rgba(0,123,255,.25); }
+        .url-info {
+            margin-bottom: 20px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        footer {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9em;
+            border-top: 1px solid #e9ecef;
+        }
+        .hidden {
+            display: none;
+        }
+        @media (max-width: 600px) {
+            .change-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>UI Change Detection Report</h1>
+            <p>Generated on: 2025-08-28 15:06:17 UTC</p>
+        </div>
+        
+        <div class="summary">
+            <div class="stat-card">
+                <div class="stat-number">5</div>
+                <div>Total Changes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number critical">5</div>
+                <div>Critical Changes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number cosmetic">0</div>
+                <div>Cosmetic Changes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number noise">0</div>
+                <div>Noise</div>
+            </div>
+        </div>
+        
+        <div class="changes-section">
+            <div class="url-info">Tested URL: https://instantink-pie1.hpconnectedpie.com/us/en/l/v2</div>
+            
+            <div class="filter-buttons">
+                <button class="filter-button all active" onclick="filterChanges('all')">All Changes</button>
+                <button class="filter-button critical" onclick="filterChanges('critical')">Critical</button>
+                <button class="filter-button cosmetic" onclick="filterChanges('cosmetic')">Cosmetic</button>
+                <button class="filter-button noise" onclick="filterChanges('noise')">Noise</button>
+            </div>
+            
+            <!-- Changes List -->
+            <div class="change-item critical" data-type="critical">
+                <div class="change-header critical">
+                    <div>img.globalHeader-module_newIiLogo__1coAs - attr_src</div>
+                    <div class="confidence-badge">50% confidence</div>
+                </div>
+                <div class="change-details">
+                    <div><strong>Change Type:</strong> <span>attribute</span></div>
+                    <div class="change-grid">
+                        <div class="value-box old">
+                            <div><strong>Old Value:</strong></div>
+                            <div>https://assets.instantink.com/landing_page_app/assets/images/v3/hp-ii-logo.12960f8bc4f295bd4b9b895ae0436fdc.svg</div>
+                        </div>
+                        <div class="value-box new">
+                            <div><strong>New Value:</strong></div>
+                            <div>https://assets-pie1.instantink.com/landing_page_app/assets/images/v3/hp-ii-logo.12960f8bc4f295bd4b9b895ae0436fdc.svg</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="change-item critical" data-type="critical">
+                <div class="change-header critical">
+                    <div>#headerContent-module_smbSignUpBtn__2jAYD - attr_class</div>
+                    <div class="confidence-badge">50% confidence</div>
+                </div>
+                <div class="change-details">
+                    <div><strong>Change Type:</strong> <span>attribute</span></div>
+                    <div class="change-grid">
+                        <div class="value-box old">
+                            <div><strong>Old Value:</strong></div>
+                            <div>headerContent-module_v3SignUpBtn__2nC2q css-1qeovsn null dyMonitor</div>
+                        </div>
+                        <div class="value-box new">
+                            <div><strong>New Value:</strong></div>
+                            <div>headerContent-module_v3SignUpBtn__2nC2q css-1qeovsn</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="change-item critical" data-type="critical">
+                <div class="change-header critical">
+                    <div>a:nth-of-type(1) - text</div>
+                    <div class="confidence-badge">90% confidence</div>
+                </div>
+                <div class="change-details">
+                    <div><strong>Change Type:</strong> <span>text</span></div>
+                    <div class="change-grid">
+                        <div class="value-box old">
+                            <div><strong>Old Value:</strong></div>
+                            <div>Paper Add-on Service</div>
+                        </div>
+                        <div class="value-box new">
+                            <div><strong>New Value:</strong></div>
+                            <div>Instant Paper</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="change-item critical" data-type="critical">
+                <div class="change-header critical">
+                    <div>a:nth-of-type(1) - width</div>
+                    <div class="confidence-badge">38% confidence</div>
+                </div>
+                <div class="change-details">
+                    <div><strong>Change Type:</strong> <span>style_dimension</span></div>
+                    <div class="change-grid">
+                        <div class="value-box old">
+                            <div><strong>Old Value:</strong></div>
+                            <div>154.781px</div>
+                        </div>
+                        <div class="value-box new">
+                            <div><strong>New Value:</strong></div>
+                            <div>95.2188px</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="change-item critical" data-type="critical">
+                <div class="change-header critical">
+                    <div>div.globalHeader-module_paperAddOn__3hp1C - width</div>
+                    <div class="confidence-badge">38% confidence</div>
+                </div>
+                <div class="change-details">
+                    <div><strong>Change Type:</strong> <span>style_dimension</span></div>
+                    <div class="change-grid">
+                        <div class="value-box old">
+                            <div><strong>Old Value:</strong></div>
+                            <div>154.781px</div>
+                        </div>
+                        <div class="value-box new">
+                            <div><strong>New Value:</strong></div>
+                            <div>95.2188px</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            Generated by Java UI Tester
+        </footer>
+    </div>
+    
+    <script>
+        function filterChanges(type) {
+            // Update active button
+            document.querySelectorAll('.filter-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.filter-button.${type}`).classList.add('active');
+            
+            // Show/hide changes based on filter
+            document.querySelectorAll('.change-item').forEach(item => {
+                if (type === 'all' || item.getAttribute('data-type') === type) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

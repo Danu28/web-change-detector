@@ -187,13 +187,23 @@ public class ChangeDetector {
         Map<String, Object> newPosition = newElement.getPosition();
         
         if (oldPosition != null && newPosition != null) {
-            // Check for position changes
+            // Check for position changes (skip width/height if already detected as style changes)
             String[] positionProps = {"x", "y", "width", "height"};
             for (String prop : positionProps) {
                 Object oldVal = oldPosition.get(prop);
                 Object newVal = newPosition.get(prop);
                 
                 if (!nullSafeEquals(oldVal, newVal)) {
+                    // Skip width/height changes if they were already detected as style dimension changes
+                    if ((prop.equals("width") || prop.equals("height"))) {
+                        boolean styleChangeExists = elementChanges.stream()
+                            .anyMatch(change -> change.getProperty().equals(prop) && 
+                                     change.getChangeType().equals("style_dimension"));
+                        if (styleChangeExists) {
+                            continue; // Skip this position change as it's redundant
+                        }
+                    }
+                    
                     double magnitude = 0.5; // Default magnitude for position changes
                     
                     // Calculate magnitude for numeric position changes

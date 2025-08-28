@@ -1,0 +1,41 @@
+[ {
+  "element" : "img.globalHeader-module_newIiLogo__1coAs",
+  "property" : "attr_src",
+  "oldValue" : "https://assets.instantink.com/landing_page_app/assets/images/v3/hp-ii-logo.12960f8bc4f295bd4b9b895ae0436fdc.svg",
+  "newValue" : "https://assets-pie1.instantink.com/landing_page_app/assets/images/v3/hp-ii-logo.12960f8bc4f295bd4b9b895ae0436fdc.svg",
+  "changeType" : "attribute",
+  "magnitude" : 0.5,
+  "classification" : "critical"
+}, {
+  "element" : "#headerContent-module_smbSignUpBtn__2jAYD",
+  "property" : "attr_class",
+  "oldValue" : "headerContent-module_v3SignUpBtn__2nC2q css-1qeovsn null dyMonitor",
+  "newValue" : "headerContent-module_v3SignUpBtn__2nC2q css-1qeovsn",
+  "changeType" : "attribute",
+  "magnitude" : 0.5,
+  "classification" : "critical"
+}, {
+  "element" : "a:nth-of-type(1)",
+  "property" : "text",
+  "oldValue" : "Paper Add-on Service",
+  "newValue" : "Instant Paper",
+  "changeType" : "text",
+  "magnitude" : 0.9,
+  "classification" : "critical"
+}, {
+  "element" : "a:nth-of-type(1)",
+  "property" : "width",
+  "oldValue" : "154.781px",
+  "newValue" : "95.2188px",
+  "changeType" : "style_dimension",
+  "magnitude" : 0.3848159657839141,
+  "classification" : "critical"
+}, {
+  "element" : "div.globalHeader-module_paperAddOn__3hp1C",
+  "property" : "width",
+  "oldValue" : "154.781px",
+  "newValue" : "95.2188px",
+  "changeType" : "style_dimension",
+  "magnitude" : 0.3848159657839141,
+  "classification" : "critical"
+} ]
