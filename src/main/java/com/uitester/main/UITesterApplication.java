@@ -158,6 +158,11 @@ public class UITesterApplication {
                 .desc("Maximum number of changes to detect")
                 .build());
         
+        options.addOption(Option.builder()
+                .longOpt("detect-structural")
+                .desc("Enable detection of structural changes (element additions/removals)")
+                .build());
+        
         // Section info
         options.addOption(Option.builder("s")
                 .longOpt("section-name")
@@ -246,6 +251,10 @@ public class UITesterApplication {
             config.setMaxChanges(Integer.parseInt(cmd.getOptionValue("max-changes")));
         }
         
+        if (cmd.hasOption("detect-structural")) {
+            config.setDetectStructuralChanges(true);
+        }
+        
         // Section info
         if (cmd.hasOption("section-name")) {
             config.setSectionName(cmd.getOptionValue("section-name"));
@@ -291,7 +300,7 @@ public class UITesterApplication {
         
         // Detect changes
         logger.info("Detecting changes between baseline and current snapshots");
-        ChangeDetector changeDetector = new ChangeDetector();
+        ChangeDetector changeDetector = new ChangeDetector(config);
         List<ElementChange> changes = changeDetector.detectChanges(baselineElements, currentElements, config.getMaxChanges());
         
         // Save changes to file

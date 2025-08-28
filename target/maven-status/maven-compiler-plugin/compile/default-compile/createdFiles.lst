@@ -1,10 +1,16 @@
+com\uitester\test\TestChangeDetection$2.class
 com\uitester\report\ReportGenerator.class
 com\uitester\main\UITesterApplication.class
+com\uitester\test\TestChangeDetection.class
+com\uitester\test\TestChangeDetection$1.class
 com\uitester\crawler\DOMCSSCrawler.class
 com\uitester\test\TestChangeDetectionDebug$1.class
 com\uitester\core\Configuration.class
 com\uitester\core\ElementData.class
 com\uitester\diff\ElementChange.class
+com\uitester\test\TestDuplicateSelectors$2.class
 com\uitester\test\TestChangeDetectionDebug.class
 com\uitester\diff\ChangeDetector.class
 com\uitester\test\TestChangeDetectionDebug$2.class
+com\uitester\test\TestDuplicateSelectors.class
+com\uitester\test\TestDuplicateSelectors$1.class

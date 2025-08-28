@@ -36,6 +36,7 @@ public class Configuration {
     
     // Detection settings
     private Integer maxChanges;
+    private boolean detectStructuralChanges;
     
     // Section info
     private String sectionName;
@@ -72,6 +73,7 @@ public class Configuration {
         this.viewportHeight = null;
         
         this.maxChanges = 500;
+        this.detectStructuralChanges = false; // Default to not detecting structural changes
         
         this.sectionName = null;
         
@@ -282,6 +284,14 @@ public class Configuration {
 
     public void setMaxChanges(Integer maxChanges) {
         this.maxChanges = maxChanges;
+    }
+
+    public boolean isDetectStructuralChanges() {
+        return detectStructuralChanges;
+    }
+
+    public void setDetectStructuralChanges(boolean detectStructuralChanges) {
+        this.detectStructuralChanges = detectStructuralChanges;
     }
 
     public String getSectionName() {

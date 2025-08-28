@@ -7,36 +7,12 @@
   "magnitude" : 0.5,
   "classification" : "critical"
 }, {
-  "element" : "a:nth-of-type(1)",
-  "property" : "element_existence",
-  "oldValue" : "present",
-  "newValue" : "removed",
-  "changeType" : "structural",
-  "magnitude" : 1.0,
-  "classification" : "critical"
-}, {
-  "element" : "a:nth-of-type(1)",
-  "property" : "element_existence",
-  "oldValue" : "absent",
-  "newValue" : "added",
-  "changeType" : "structural",
-  "magnitude" : 1.0,
-  "classification" : "critical"
-}, {
   "element" : "#headerContent-module_smbSignUpBtn__2jAYD",
   "property" : "attr_class",
   "oldValue" : "headerContent-module_v3SignUpBtn__2nC2q css-1qeovsn null dyMonitor",
   "newValue" : "headerContent-module_v3SignUpBtn__2nC2q css-1qeovsn",
   "changeType" : "attribute",
   "magnitude" : 0.5,
-  "classification" : "critical"
-}, {
-  "element" : "div.globalHeader-module_faqs__3geCI",
-  "property" : "element_existence",
-  "oldValue" : "absent",
-  "newValue" : "added",
-  "changeType" : "structural",
-  "magnitude" : 1.0,
   "classification" : "critical"
 }, {
   "element" : "a:nth-of-type(1)",
@@ -61,14 +37,6 @@
   "newValue" : "95",
   "changeType" : "layout",
   "magnitude" : 0.3870967741935484,
-  "classification" : "critical"
-}, {
-  "element" : "div.globalHeader-module_faqs__3geCI",
-  "property" : "element_existence",
-  "oldValue" : "present",
-  "newValue" : "removed",
-  "changeType" : "structural",
-  "magnitude" : 1.0,
   "classification" : "critical"
 }, {
   "element" : "div.globalHeader-module_paperAddOn__3hp1C",

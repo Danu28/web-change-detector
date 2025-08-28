@@ -12,6 +12,7 @@ import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.uitester.core.Configuration;
 import com.uitester.core.ElementData;
 
 /**
@@ -22,9 +23,16 @@ public class ChangeDetector {
     private static final Logger logger = LoggerFactory.getLogger(ChangeDetector.class);
     
     private List<ElementChange> changes;
+    private Configuration configuration;
     
     public ChangeDetector() {
         this.changes = new ArrayList<>();
+        this.configuration = null; // Will use default behavior
+    }
+    
+    public ChangeDetector(Configuration configuration) {
+        this.changes = new ArrayList<>();
+        this.configuration = configuration;
     }
     
     /**
@@ -384,26 +392,34 @@ public class ChangeDetector {
                     // Element exists in both snapshots - detect changes
                     List<ElementChange> elementChanges = detectElementChanges(oldElement, newElement);
                     changes.addAll(elementChanges);
-                } else if (oldElement != null) {
-                    // Element removed in new snapshot
-                    changes.add(new ElementChange(
-                        oldElement.getSelector(),
-                        "element_existence",
-                        "present",
-                        "removed",
-                        "structural",
-                        1.0
-                    ));
-                } else if (newElement != null) {
-                    // Element added in new snapshot
-                    changes.add(new ElementChange(
-                        newElement.getSelector(),
-                        "element_existence",
-                        "absent",
-                        "added",
-                        "structural",
-                        1.0
-                    ));
+                } else {
+                    // Check if structural change detection is enabled
+                    boolean detectStructural = configuration != null ? 
+                        configuration.isDetectStructuralChanges() : false;
+                    
+                    if (detectStructural) {
+                        if (oldElement != null) {
+                            // Element removed in new snapshot
+                            changes.add(new ElementChange(
+                                oldElement.getSelector(),
+                                "element_existence",
+                                "present",
+                                "removed",
+                                "structural",
+                                1.0
+                            ));
+                        } else if (newElement != null) {
+                            // Element added in new snapshot
+                            changes.add(new ElementChange(
+                                newElement.getSelector(),
+                                "element_existence",
+                                "absent",
+                                "added",
+                                "structural",
+                                1.0
+                            ));
+                        }
+                    }
                 }
                 
                 processedCount++;
