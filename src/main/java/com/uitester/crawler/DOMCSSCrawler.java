@@ -105,7 +105,8 @@ public class DOMCSSCrawler {
         
         // Instantiate the driver
         this.driver = new ChromeDriver(chromeOptions);
-        
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(60));
+
         // Additional window sizing logic
         if (!headless && viewportWidth != null && viewportHeight != null) {
             driver.manage().window().setSize(new org.openqa.selenium.Dimension(viewportWidth, viewportHeight));

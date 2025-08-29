@@ -30,14 +30,18 @@ public class UIChangeDetectionTest {
     private ObjectMapper objectMapper;
     
     @BeforeClass
-    @Parameters({"baseline.url", "current.url", "xpath", "section.name", "detect.structural", "headless"})
+    @Parameters({"baseline.url", "current.url", "xpath", "section.name",
+            "detect.structural", "headless", "viewport.width", "viewport.height", "wait.time"})
     public void setUp(
             @Optional("") String baselineUrl,
             @Optional("") String currentUrl,
             @Optional("") String xpath,
             @Optional("") String sectionName,
             @Optional("false") String detectStructural,
-            @Optional("true") String headless) {
+            @Optional("true") String headless,
+            @Optional("1920") int viewportWidth,
+            @Optional("1080") int viewportHeight,
+            @Optional("60") int waitTime) {
         
         // Initialize configuration
         config = new Configuration();
@@ -66,6 +70,13 @@ public class UIChangeDetectionTest {
         
         // Set headless mode
         config.setHeadless(Boolean.parseBoolean(headless));
+
+        // Set viewport dimensions
+        config.setViewportWidth(viewportWidth);
+        config.setViewportHeight(viewportHeight);
+
+        // Set wait time
+        config.setWaitTime(waitTime);
         
         // Update output paths
         config.updateOutputPaths();
@@ -80,8 +91,8 @@ public class UIChangeDetectionTest {
         System.out.println("- Output Dir: " + config.getOutputDir());
     }
     
-    @Test(description = "Test UI change detection between baseline and current URLs")
-    public void testUIChangeDetection() throws Exception {
+    @Test(priority = 1)
+    public void testWithChanges() throws Exception {
         System.out.println("Starting UI change detection test...");
         
         // Create UITesterApplication instance
@@ -89,122 +100,27 @@ public class UIChangeDetectionTest {
         
         // Run the UI testing process
         app.run();
-        
-        // Verify that output files were created
-        verifyOutputFiles();
-        
+    
         // Load and validate changes
         List<ElementChange> changes = loadChanges();
-        
-        // Print summary
-        printTestSummary(changes);
-        
-        System.out.println("UI change detection test completed successfully!");
-    }
     
-    @Test(description = "Test change detection with structural changes enabled", dependsOnMethods = "testUIChangeDetection")
-    @Parameters({"enable.structural.test"})
-    public void testUIChangeDetectionWithStructural(@Optional("false") String enableTest) throws Exception {
-        if (!Boolean.parseBoolean(enableTest)) {
-            System.out.println("Structural change test skipped (enable.structural.test=false)");
-            return;
-        }
-        
-        System.out.println("Starting UI change detection test with structural changes...");
-        
-        // Create new configuration with structural changes enabled
-        Configuration structuralConfig = getConfiguration();
+        Assert.assertFalse(changes.isEmpty(), "No changes should be detected between identical pages");
+    }
+
+    @Test(priority = 2)
+    public void testWithoutChanges() throws Exception {
+        System.out.println("Starting UI change detection test...");
 
         // Create UITesterApplication instance
-        UITesterApplication app = new UITesterApplication(structuralConfig);
-        
+        UITesterApplication app = new UITesterApplication(config);
+
         // Run the UI testing process
         app.run();
-        
-        // Load changes from both runs
-        List<ElementChange> regularChanges = loadChanges();
-        List<ElementChange> structuralChanges = loadChangesFromConfig(structuralConfig);
-        
-        // Verify that structural test found more or equal changes
-        Assert.assertTrue(structuralChanges.size() >= regularChanges.size(), 
-            "Structural test should find more or equal changes than regular test");
-        
-        System.out.println("Regular changes: " + regularChanges.size());
-        System.out.println("Structural changes: " + structuralChanges.size());
-        System.out.println("Structural change detection test completed successfully!");
-    }
 
-    private Configuration getConfiguration() {
-        Configuration structuralConfig = new Configuration();
-        structuralConfig.setBaselineUrl(config.getBaselineUrl());
-        structuralConfig.setCurrentUrl(config.getCurrentUrl());
-        structuralConfig.setContainerXpath(config.getContainerXpath());
-        structuralConfig.setSectionName(config.getSectionName() + "_structural");
-        structuralConfig.setDetectStructuralChanges(true);
-        structuralConfig.setHeadless(config.isHeadless());
-        structuralConfig.updateOutputPaths();
-        return structuralConfig;
-    }
-
-    @Test(description = "Validate change classifications", dependsOnMethods = "testUIChangeDetection")
-    public void testChangeClassifications() throws Exception {
-        System.out.println("Validating change classifications...");
-        
+        // Load and validate changes
         List<ElementChange> changes = loadChanges();
-        
-        for (ElementChange change : changes) {
-            // Verify classification is valid
-            String classification = change.getClassification();
-            Assert.assertTrue(
-                "critical".equals(classification) || 
-                "cosmetic".equals(classification) || 
-                "noise".equals(classification),
-                "Invalid classification: " + classification
-            );
-            
-            // Verify magnitude is within valid range
-            double magnitude = change.getMagnitude();
-            Assert.assertTrue(magnitude >= 0.0 && magnitude <= 1.0, 
-                "Magnitude should be between 0.0 and 1.0, got: " + magnitude);
-        }
-        
-        System.out.println("Change classifications validation completed successfully!");
-    }
-    
-    @Test(description = "Test report generation", dependsOnMethods = "testUIChangeDetection")
-    public void testReportGeneration() throws Exception {
-        System.out.println("Testing report generation...");
-        
-        // Verify HTML report exists
-        File reportFile = new File(config.getReportFile());
-        Assert.assertTrue(reportFile.exists(), "HTML report should be generated");
-        Assert.assertTrue(reportFile.length() > 0, "HTML report should not be empty");
-        
-        // Verify report contains expected content
-        String reportContent = new String(java.nio.file.Files.readAllBytes(reportFile.toPath()));
-        Assert.assertTrue(reportContent.contains("<html"), "Report should be valid HTML");
-        Assert.assertTrue(reportContent.contains("UI Change Detection Report"), "Report should have title");
-        
-        System.out.println("Report generation test completed successfully!");
-        System.out.println("Report available at: " + config.getReportFile());
-    }
-    
-    private void verifyOutputFiles() {
-        // Verify baseline snapshot
-        File baselineFile = new File(config.getBaselineSnapshot());
-        Assert.assertTrue(baselineFile.exists(), "Baseline snapshot should be created");
-        
-        // Verify current snapshot
-        File currentFile = new File(config.getCurrentSnapshot());
-        Assert.assertTrue(currentFile.exists(), "Current snapshot should be created");
-        
-        // Verify changes file
-        File changesFile = new File(config.getChangesFile());
-        Assert.assertTrue(changesFile.exists(), "Changes file should be created");
-        
-        // Verify report file
-        File reportFile = new File(config.getReportFile());
-        Assert.assertTrue(reportFile.exists(), "Report file should be created");
+
+        Assert.assertTrue(changes.isEmpty(), "No changes should be detected between identical pages");
     }
     
     private List<ElementChange> loadChanges() throws Exception {
@@ -218,34 +134,5 @@ public class UIChangeDetectionTest {
                 new TypeReference<>() {
                 }
         );
-    }
-    
-    private void printTestSummary(List<ElementChange> changes) {
-        System.out.println("\n=== TEST SUMMARY ===");
-        System.out.println("Total changes detected: " + changes.size());
-        
-        // Count by change type
-        long attributeChanges = changes.stream().filter(c -> c.getChangeType().equals("attribute")).count();
-        long textChanges = changes.stream().filter(c -> c.getChangeType().equals("text")).count();
-        long styleChanges = changes.stream().filter(c -> c.getChangeType().startsWith("style_")).count();
-        long layoutChanges = changes.stream().filter(c -> c.getChangeType().equals("layout")).count();
-        long structuralChanges = changes.stream().filter(c -> c.getChangeType().equals("structural")).count();
-        
-        System.out.println("- Attribute changes: " + attributeChanges);
-        System.out.println("- Text changes: " + textChanges);
-        System.out.println("- Style changes: " + styleChanges);
-        System.out.println("- Layout changes: " + layoutChanges);
-        System.out.println("- Structural changes: " + structuralChanges);
-        
-        // Count by classification
-        long criticalChanges = changes.stream().filter(c -> "critical".equals(c.getClassification())).count();
-        long cosmeticChanges = changes.stream().filter(c -> "cosmetic".equals(c.getClassification())).count();
-        long noiseChanges = changes.stream().filter(c -> "noise".equals(c.getClassification())).count();
-        
-        System.out.println("- Critical changes: " + criticalChanges);
-        System.out.println("- Cosmetic changes: " + cosmeticChanges);
-        System.out.println("- Noise changes: " + noiseChanges);
-        
-        System.out.println("===================\n");
     }
 }

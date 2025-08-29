@@ -326,14 +326,10 @@ public class UITesterApplication {
         logger.info("Crawling {} page: {}", label, url);
         
         List<ElementData> elements;
-        File snapshotFile = new File(label.equals("baseline") ? 
+        File snapshotFile = new File(label.equals("baseline") ?
                 config.getBaselineSnapshot() : config.getCurrentSnapshot());
-        
-        // Check if we already have a snapshot file
-        if (snapshotFile.exists() && !url.startsWith("file:")) {
-            logger.info("Loading existing {} snapshot from {}", label, snapshotFile.getAbsolutePath());
-            elements = loadElementsFromFile(snapshotFile.getAbsolutePath());
-        } else {
+
+        {
             // Create crawler and extract elements
             DOMCSSCrawler crawler = new DOMCSSCrawler(
                     config.isHeadless(),

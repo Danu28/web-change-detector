@@ -323,23 +323,15 @@ public class ChangeDetector {
     
     /**
      * Create a unique identifier for an element
-     * Uses selector + position (but NOT text content) to handle duplicate selectors
-     * Text content is excluded because it may change and we want to detect those changes
+     * Uses selector + stable attributes (but NOT position or text content) to handle duplicate selectors
+     * Position and text content are excluded because those changes are what we want to detect
      */
     private String createElementId(ElementData element) {
         StringBuilder id = new StringBuilder();
         id.append(element.getSelector());
         
-        // Add position info to distinguish elements with same selector
-        if (element.getPosition() != null) {
-            Object x = element.getPosition().get("x");
-            Object y = element.getPosition().get("y");
-            if (x != null && y != null) {
-                id.append("::pos=").append(x).append(",").append(y);
-            }
-        }
-        
-        // If we still don't have enough uniqueness, add some stable attributes
+        // Add stable attributes to distinguish elements with same selector
+        // But do NOT include position since that's what we want to detect changes in
         if (element.getAttributes() != null) {
             String classAttr = element.getAttributes().get("class");
             String idAttr = element.getAttributes().get("id");
@@ -352,7 +344,15 @@ public class ChangeDetector {
             }
         }
         
-        return id.toString();
+        // Only add position as last resort if we still have duplicate selectors
+        // and no distinguishing attributes
+        String baseId = id.toString();
+        
+        // For now, let's use a simple approach: selector + stable attributes should be enough
+        // If we need position for uniqueness, we can add it back but we need to handle
+        // the case where positions change but it's the same logical element
+        
+        return baseId;
     }
 
     /**

@@ -1,47 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 <suite name="UIChangeDetectionSuite" verbose="1">
-    
-    <!-- Default test with local files -->
-<!--    <test name="LocalFileTest">-->
-<!--        <parameter name="baseline.url" value="file:///test_files/baseline.html"/>-->
-<!--        <parameter name="current.url" value="file:///test_files/current.html"/>-->
-<!--        <parameter name="xpath" value=""/>-->
-<!--        <parameter name="section.name" value="full-page"/>-->
-<!--        <parameter name="detect.structural" value="false"/>-->
-<!--        <parameter name="headless" value="true"/>-->
-<!--        <parameter name="enable.structural.test" value="true"/>-->
-<!--        <classes>-->
-<!--            <class name="com.uitester.test.UIChangeDetectionTest"/>-->
-<!--        </classes>-->
-<!--    </test>-->
-    
+
     <!-- Header section test -->
-    <test name="HeaderSectionTest">
+    <test name="HeaderSectionTest test with changes">
         <parameter name="baseline.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>
         <parameter name="current.url" value="https://instantink-pie1.hpconnectedpie.com/us/en/l/v2"/>
         <parameter name="xpath" value="//*[@id='v2Header']"/>
         <parameter name="section.name" value="header"/>
         <parameter name="detect.structural" value="false"/>
         <parameter name="headless" value="true"/>
-        <parameter name="enable.structural.test" value="true"/>
+        <parameter name="viewport.width" value="1920"/>
+        <parameter name="viewport.height" value="1080"/>
         <classes>
-            <class name="com.uitester.test.UIChangeDetectionTest"/>
+            <class name="com.uitester.test.UIChangeDetectionTest">
+                <methods>
+                    <include name="testWithChanges"/>
+                </methods>
+            </class>
         </classes>
     </test>
-    
-<!--    &lt;!&ndash; Footer section test &ndash;&gt;-->
-<!--    <test name="FooterSectionTest">-->
-<!--        <parameter name="baseline.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>-->
-<!--        <parameter name="current.url" value="https://instantink-pie1.hpconnectedpie.com/us/en/l/v2"/>-->
-<!--        <parameter name="xpath" value="//*[@id='footer']"/>-->
-<!--        <parameter name="section.name" value="footer"/>-->
-<!--        <parameter name="detect.structural" value="false"/>-->
-<!--        <parameter name="headless" value="true"/>-->
-<!--        <parameter name="enable.structural.test" value="false"/>-->
-<!--        <classes>-->
-<!--            <class name="com.uitester.test.UIChangeDetectionTest"/>-->
-<!--        </classes>-->
-<!--    </test>-->
-    
+
+    <test name="HeaderSectionTest test without changes">
+        <parameter name="baseline.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>
+        <parameter name="current.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>
+        <parameter name="xpath" value="//*[@id='v2Header']"/>
+        <parameter name="section.name" value="header"/>
+        <parameter name="detect.structural" value="false"/>
+        <parameter name="headless" value="true"/>
+        <parameter name="viewport.width" value="1920"/>
+        <parameter name="viewport.height" value="1080"/>
+        <classes>
+            <class name="com.uitester.test.UIChangeDetectionTest">
+                <methods>
+                    <include name="testWithoutChanges"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
 </suite>

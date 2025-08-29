@@ -3,10 +3,6 @@ package com.uitester.core;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Centralized configuration for UI change detection pipeline.
@@ -77,36 +73,30 @@ public class Configuration {
         
         this.sectionName = null;
         
-        // Set up output paths
-        this.outputDir = createOutputDirectory();
-        this.baselineSnapshot = new File(outputDir, "baseline.json").getAbsolutePath();
-        this.currentSnapshot = new File(outputDir, "current.json").getAbsolutePath();
-        this.changesFile = new File(outputDir, "changes.json").getAbsolutePath();
-        this.reportFile = new File(outputDir, "report.html").getAbsolutePath();
+        // Output paths will be set when updateOutputPaths() is called
+        this.outputDir = null;
+        this.baselineSnapshot = null;
+        this.currentSnapshot = null;
+        this.changesFile = null;
+        this.reportFile = null;
     }
 
     /**
-     * Create a unique output directory for this comparison.
+     * Create output directory for this comparison.
      * 
      * @return Path to the output directory
      */
     private String createOutputDirectory() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String baselineEnv = extractEnvName(baselineUrl);
         String currentEnv = extractEnvName(currentUrl);
         
-        // Determine section name
-        String section;
-        if (sectionName != null && !sectionName.isEmpty()) {
-            section = sectionName.replaceAll("[^a-zA-Z0-9_-]", "_");
-        } else if (containerXpath != null && !containerXpath.isEmpty()) {
-            section = extractSectionName(containerXpath);
-        } else {
-            section = "full-page";
-        }
+        // Use section name if provided, otherwise default to "full-page"
+        String section = (sectionName != null && !sectionName.isEmpty()) 
+                        ? sectionName.replaceAll("[^a-zA-Z0-9_-]", "_") 
+                        : "full-page";
         
-        // Create directory name
-        String dirName = String.format("%s_%s_vs_%s_%s", timestamp, baselineEnv, currentEnv, section);
+        // Create directory name: section_env1-vs-env2
+        String dirName = String.format("%s_%s-vs-%s", section, baselineEnv, currentEnv);
         
         // Create full path
         File outputDir = new File(DEFAULT_OUTPUT_DIR, dirName);
@@ -122,73 +112,25 @@ public class Configuration {
      * @return Extracted environment name (pie, stage, prod, etc.)
      */
     private String extractEnvName(String url) {
-        String urlLower = url.toLowerCase();
-        
-        // Check for common environment indicators
-        Pattern[] patterns = {
-            Pattern.compile("[-_.]pie[-_.]"),
-            Pattern.compile("[-_.]stage[-_.]"),
-            Pattern.compile("[-_.]test[-_.]"),
-            Pattern.compile("[-_.]dev[-_.]"),
-            Pattern.compile("[-_.]qa[-_.]")
-        };
-        
-        String[] envNames = {"pie", "stage", "test", "dev", "qa"};
-        
-        for (int i = 0; i < patterns.length; i++) {
-            Matcher matcher = patterns[i].matcher(urlLower);
-            if (matcher.find()) {
-                return envNames[i];
-            }
+        // Handle local files
+        if (url.toLowerCase().startsWith("file:")) {
+            return "local";
         }
         
-        // Try to get domain name for production URLs
         try {
             URI uri = new URI(url);
             String domain = uri.getHost();
             if (domain != null) {
-                // Extract first part of domain (e.g. "example" from "example.com")
-                return domain.split("\\.")[0];
+                return domain;
             }
         } catch (URISyntaxException e) {
             // Ignore parsing errors
-        }
-        
-        // Default to a simple name for file:// URLs
-        if (urlLower.startsWith("file:")) {
-            return "local";
         }
         
         // Last resort
         return "unknown";
     }
     
-    /**
-     * Extract a section name from an XPath expression
-     * 
-     * @param xpath XPath to extract section name from
-     * @return Extracted section name
-     */
-    private String extractSectionName(String xpath) {
-        // Extract ID from #id
-        Pattern idPattern = Pattern.compile("id\\(['\"]([^'\"]+)['\"]\\)|\\[@id=['\"]([^'\"]+)['\"]\\]");
-        Matcher idMatcher = idPattern.matcher(xpath);
-        if (idMatcher.find()) {
-            String id = idMatcher.group(1) != null ? idMatcher.group(1) : idMatcher.group(2);
-            return id;
-        }
-        
-        // Extract from simple tag name
-        Pattern tagPattern = Pattern.compile("//([a-zA-Z0-9]+)\\b");
-        Matcher tagMatcher = tagPattern.matcher(xpath);
-        if (tagMatcher.find()) {
-            return tagMatcher.group(1).toLowerCase();
-        }
-        
-        // Default for complex XPath
-        return "section";
-    }
-
     // Getters and setters
     public String getBaselineUrl() {
         return baselineUrl;
@@ -343,9 +285,13 @@ public class Configuration {
     }
     
     /**
-     * Updates output paths after changing the output directory
+     * Updates output paths after changing the output directory.
+     * This is the ONLY place where the output directory is created.
      */
     public void updateOutputPaths() {
+        // Create output directory with current settings - ONLY ONCE HERE
+        this.outputDir = createOutputDirectory();
+        
         this.baselineSnapshot = new File(outputDir, "baseline.json").getAbsolutePath();
         this.currentSnapshot = new File(outputDir, "current.json").getAbsolutePath();
         this.changesFile = new File(outputDir, "changes.json").getAbsolutePath();
