@@ -1,0 +1,140 @@
+{
+  "captureSettings": {
+    "attributesToCapture": [
+      "id",
+      "class",
+      "name",
+      "href",
+      "src",
+      "alt",
+      "title",
+      "type",
+      "value",
+      "placeholder",
+      "data-testid",
+      "data-qa",
+      "role",
+      "aria-label"
+    ],
+    "stylesToCapture": [
+      "color",
+      "background-color",
+      "font-size",
+      "font-weight",
+      "font-family",
+      "display",
+      "visibility",
+      "position",
+      "width",
+      "height",
+      "margin",
+      "margin-top",
+      "margin-right",
+      "margin-bottom",
+      "margin-left",
+      "padding",
+      "padding-top",
+      "padding-right",
+      "padding-bottom",
+      "padding-left",
+      "border",
+      "border-width",
+      "border-color",
+      "border-style",
+      "text-align",
+      "line-height",
+      "opacity",
+      "z-index",
+      "box-shadow",
+      "border-radius"
+    ],
+    "ignoreAttributePatterns": [
+      "data-reactid.*",
+      "data-react-.*",
+      "data-testid-.*",
+      "data-automation-.*",
+      "_ngcontent-.*",
+      "_nghost-.*"
+    ],
+    "captureOnlyViewport": true,
+    "maxTextLength": 1000,
+    "ignoreEmptyText": true
+  },
+  "comparisonSettings": {
+    "textSimilarityThreshold": 0.95,
+    "numericChangeThreshold": 0.1,
+    "colorChangeThreshold": 0.1,
+    "ignoreStyleChanges": [
+      "font-family",
+      "width",
+      "height",
+      "box-shadow"
+    ],
+    "styleCategories": {
+      "layout": [
+        "width",
+        "height",
+        "margin",
+        "margin-top",
+        "margin-right",
+        "margin-bottom",
+        "margin-left",
+        "padding",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
+        "display",
+        "position"
+      ],
+      "typography": [
+        "font-size",
+        "font-weight",
+        "font-family",
+        "line-height",
+        "text-align"
+      ],
+      "appearance": [
+        "color",
+        "background-color",
+        "border",
+        "border-width",
+        "border-color",
+        "border-style",
+        "opacity",
+        "box-shadow",
+        "border-radius"
+      ],
+      "positioning": [
+        "z-index",
+        "visibility"
+      ]
+    },
+    "changeMagnitudeWeights": {
+      "layout": 0.8,
+      "typography": 0.6,
+      "appearance": 0.7,
+      "positioning": 0.5
+    }
+  },
+  "fingerprintSettings": {
+    "useTagName": true,
+    "useTextContent": true,
+    "useAttributes": [
+      "id",
+      "class",
+      "name",
+      "data-testid"
+    ],
+    "textContentMaxLength": 100,
+    "normalizeWhitespace": true,
+    "caseSensitive": false,
+    "includePosition": false
+  },
+  "performanceSettings": {
+    "maxElements": 10000,
+    "maxProcessingTimeMs": 300000,
+    "enableParallelProcessing": true,
+    "memoryWarningThresholdMb": 512
+  }
+}

@@ -113,14 +113,25 @@ public class ChangeDetector {
                 newElement.getText() == null ? "" : newElement.getText()
             );
             
-            elementChanges.add(new ElementChange(
-                selector,
-                "text",
-                oldElement.getText(),
-                newElement.getText(),
-                "text",
-                1 - similarity
-            ));
+            // Get threshold from configuration
+            double threshold = 0.95; // Default threshold
+            if (configuration != null && configuration.getProjectConfig() != null &&
+                configuration.getProjectConfig().getComparisonSettings() != null &&
+                configuration.getProjectConfig().getComparisonSettings().getTextSimilarityThreshold() != null) {
+                threshold = configuration.getProjectConfig().getComparisonSettings().getTextSimilarityThreshold();
+            }
+            
+            // Only report change if similarity is below threshold
+            if (similarity < threshold) {
+                elementChanges.add(new ElementChange(
+                    selector,
+                    "text",
+                    oldElement.getText(),
+                    newElement.getText(),
+                    "text",
+                    1 - similarity
+                ));
+            }
         }
         
         // Attribute changes
@@ -153,12 +164,25 @@ public class ChangeDetector {
         Set<String> allStyles = new HashSet<>(oldStyles.keySet());
         allStyles.addAll(newStyles.keySet());
         
+        // Get ignore list from configuration
+        List<String> ignoreStyleChanges = new ArrayList<>();
+        if (configuration != null && configuration.getProjectConfig() != null &&
+            configuration.getProjectConfig().getComparisonSettings() != null &&
+            configuration.getProjectConfig().getComparisonSettings().getIgnoreStyleChanges() != null) {
+            ignoreStyleChanges = configuration.getProjectConfig().getComparisonSettings().getIgnoreStyleChanges();
+        }
+        
         // Style categorization for better reporting
         for (String style : allStyles) {
             String oldVal = oldStyles.get(style);
             String newVal = newStyles.get(style);
             
             if (!nullSafeEquals(oldVal, newVal)) {
+                // Skip if this style is in the ignore list
+                if (ignoreStyleChanges.contains(style)) {
+                    continue;
+                }
+                
                 String category = getStyleCategory(style);
                 double magnitude;
                 
@@ -234,7 +258,7 @@ public class ChangeDetector {
     }
     
     /**
-     * Categorize a CSS property
+     * Categorize a CSS property using configuration or fallback logic
      * 
      * @param property CSS property name
      * @return Category name
@@ -242,6 +266,22 @@ public class ChangeDetector {
     private String getStyleCategory(String property) {
         if (property == null) return "other";
         
+        // Use configuration if available
+        if (configuration != null && configuration.getProjectConfig() != null &&
+            configuration.getProjectConfig().getComparisonSettings() != null &&
+            configuration.getProjectConfig().getComparisonSettings().getStyleCategories() != null) {
+            
+            Map<String, List<String>> styleCategories = 
+                configuration.getProjectConfig().getComparisonSettings().getStyleCategories();
+            
+            for (Map.Entry<String, List<String>> entry : styleCategories.entrySet()) {
+                if (entry.getValue().contains(property)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        
+        // Fallback to hardcoded logic if not found in configuration
         // Dimensions
         if (property.contains("width") || property.contains("height") ||
             property.contains("margin") || property.contains("padding") ||

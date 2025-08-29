@@ -3,15 +3,22 @@ package com.uitester.core;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Centralized configuration for UI change detection pipeline.
  * This class manages all settings and paths for the UI testing process.
  */
 public class Configuration {
+    private static final Logger logger = LoggerFactory.getLogger(Configuration.class);
+    
     // Default configuration values
     private static final String TEST_FILES_DIR = "test_files";
     private static final String DEFAULT_OUTPUT_DIR = "output";
+    
+    // Project configuration loaded from config.json
+    private ProjectConfig projectConfig;
     
     // URLs
     private String baselineUrl;
@@ -48,6 +55,9 @@ public class Configuration {
      * Create a new Configuration with default values
      */
     public Configuration() {
+        // Load project configuration first
+        this.projectConfig = ConfigLoader.loadConfig();
+        
         // Set default values
         try {
             this.baselineUrl = "file:///" + new File(TEST_FILES_DIR, "baseline.html").getAbsolutePath();
@@ -57,13 +67,16 @@ public class Configuration {
             this.currentUrl = "file:///test_files/current.html";
         }
         
-        this.maxElements = null;
+        // Use configuration values if available, otherwise use hardcoded defaults
+        this.maxElements = projectConfig.getPerformanceSettings() != null ? 
+                          projectConfig.getPerformanceSettings().getMaxElements() : null;
         this.waitTime = 45;
         this.scrollTime = 2.0;
         this.headless = false;
         this.enableScrolling = true;
         this.containerXpath = null;
-        this.parallelCrawling = true;
+        this.parallelCrawling = projectConfig.getPerformanceSettings() != null ? 
+                               Boolean.TRUE.equals(projectConfig.getPerformanceSettings().getEnableParallelProcessing()) : true;
         
         this.viewportWidth = null;
         this.viewportHeight = null;
@@ -79,6 +92,8 @@ public class Configuration {
         this.currentSnapshot = null;
         this.changesFile = null;
         this.reportFile = null;
+        
+        logger.info("Configuration initialized with project config");
     }
 
     /**
@@ -282,6 +297,15 @@ public class Configuration {
 
     public void setReportFile(String reportFile) {
         this.reportFile = reportFile;
+    }
+    
+    /**
+     * Get the loaded project configuration.
+     * 
+     * @return ProjectConfig object with all configuration settings
+     */
+    public ProjectConfig getProjectConfig() {
+        return projectConfig;
     }
     
     /**

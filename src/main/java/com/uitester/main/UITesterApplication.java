@@ -335,7 +335,8 @@ public class UITesterApplication {
                     config.isHeadless(),
                     null,
                     config.getViewportWidth(),
-                    config.getViewportHeight());
+                    config.getViewportHeight(),
+                    config);
             
             try {
                 // Navigate and extract elements

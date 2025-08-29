@@ -1,41 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="UIChangeDetectionSuite" verbose="1">
+<suite name="Phase1ConfigurationSuite" verbose="1">
 
-    <!-- Header section test -->
-    <test name="HeaderSectionTest test with changes">
-        <parameter name="baseline.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>
-        <parameter name="current.url" value="https://instantink-pie1.hpconnectedpie.com/us/en/l/v2"/>
-        <parameter name="xpath" value="//*[@id='v2Header']"/>
-        <parameter name="section.name" value="header"/>
-        <parameter name="detect.structural" value="false"/>
-        <parameter name="headless" value="true"/>
-        <parameter name="viewport.width" value="1920"/>
-        <parameter name="viewport.height" value="1080"/>
+    <!-- Phase 1 Configuration Tests -->
+    <test name="Phase1ConfigurationTests">
         <classes>
-            <class name="com.uitester.test.UIChangeDetectionTest">
-                <methods>
-                    <include name="testWithChanges"/>
-                </methods>
-            </class>
-        </classes>
-    </test>
-
-    <test name="HeaderSectionTest test without changes">
-        <parameter name="baseline.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>
-        <parameter name="current.url" value="https://instantink.hpconnected.com/us/en/l/v2"/>
-        <parameter name="xpath" value="//*[@id='v2Header']"/>
-        <parameter name="section.name" value="header"/>
-        <parameter name="detect.structural" value="false"/>
-        <parameter name="headless" value="true"/>
-        <parameter name="viewport.width" value="1920"/>
-        <parameter name="viewport.height" value="1080"/>
-        <classes>
-            <class name="com.uitester.test.UIChangeDetectionTest">
-                <methods>
-                    <include name="testWithoutChanges"/>
-                </methods>
-            </class>
+            <class name="com.uitester.test.ConfigurationTest"/>
+            <class name="com.uitester.test.Phase1ConfigurationTest"/>
         </classes>
     </test>
 

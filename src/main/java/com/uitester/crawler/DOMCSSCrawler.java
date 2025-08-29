@@ -36,13 +36,7 @@ public class DOMCSSCrawler {
     
     private WebDriver driver;
     private List<ElementData> elements;
-    
-    // CSS properties to extract from elements
-    private static final Set<String> CSS_PROPERTIES = new HashSet<>(Arrays.asList(
-        "color", "background-color", "font-size", "font-weight", "display",
-        "visibility", "position", "width", "height", "margin", "padding",
-        "border", "text-align", "line-height", "opacity", "z-index"
-    ));
+    private Set<String> cssProperties;
     
     /**
      * Initialize the DOM CSS Crawler
@@ -53,6 +47,50 @@ public class DOMCSSCrawler {
      * @param viewportHeight Browser viewport height in pixels (optional)
      */
     public DOMCSSCrawler(boolean headless, WebDriver driver, Integer viewportWidth, Integer viewportHeight) {
+        // Initialize with default CSS properties
+        this.cssProperties = new HashSet<>(Arrays.asList(
+            "color", "background-color", "font-size", "font-weight", "display",
+            "visibility", "position", "width", "height", "margin", "padding",
+            "border", "text-align", "line-height", "opacity", "z-index"
+        ));
+        
+        if (driver != null) {
+            this.driver = driver;
+            logger.info("Using provided WebDriver instance");
+        } else {
+            setupDriver(headless, viewportWidth, viewportHeight);
+        }
+        
+        this.elements = new ArrayList<>();
+    }
+    
+    /**
+     * Initialize the DOM CSS Crawler with configuration
+     * 
+     * @param headless Whether to run the browser in headless mode
+     * @param driver An existing WebDriver instance to use (optional)
+     * @param viewportWidth Browser viewport width in pixels (optional)
+     * @param viewportHeight Browser viewport height in pixels (optional)
+     * @param configuration Configuration object containing CSS properties to capture
+     */
+    public DOMCSSCrawler(boolean headless, WebDriver driver, Integer viewportWidth, Integer viewportHeight, 
+                        com.uitester.core.Configuration configuration) {
+        // Initialize CSS properties from configuration
+        if (configuration != null && configuration.getProjectConfig() != null && 
+            configuration.getProjectConfig().getCaptureSettings() != null &&
+            configuration.getProjectConfig().getCaptureSettings().getStylesToCapture() != null) {
+            this.cssProperties = new HashSet<>(configuration.getProjectConfig().getCaptureSettings().getStylesToCapture());
+            logger.info("Using {} CSS properties from configuration", this.cssProperties.size());
+        } else {
+            // Fallback to default properties
+            this.cssProperties = new HashSet<>(Arrays.asList(
+                "color", "background-color", "font-size", "font-weight", "display",
+                "visibility", "position", "width", "height", "margin", "padding",
+                "border", "text-align", "line-height", "opacity", "z-index"
+            ));
+            logger.warn("Using default CSS properties - configuration not available");
+        }
+        
         if (driver != null) {
             this.driver = driver;
             logger.info("Using provided WebDriver instance");
@@ -367,7 +405,7 @@ public class DOMCSSCrawler {
                 
                 // Extract element data
                 Map<String, String> attributes = extractAttributes(element);
-                Map<String, String> styles = extractStyles(element, CSS_PROPERTIES);
+                Map<String, String> styles = extractStyles(element, this.cssProperties);
                 Map<String, Object> positionData = getElementPosition(element);
                 String selector = createElementSelector(element, attributes);
                 
