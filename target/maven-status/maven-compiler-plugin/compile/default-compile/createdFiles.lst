@@ -1,4 +1,3 @@
-com\uitester\core\ProjectConfig$ValidationResult.class
 com\uitester\report\ReportGenerator.class
 com\uitester\core\ProjectConfig$PerformanceSettings.class
 com\uitester\core\ConfigLoader.class
@@ -6,6 +5,7 @@ com\uitester\main\UITesterApplication.class
 com\uitester\crawler\DOMCSSCrawler.class
 com\uitester\core\ProjectConfig.class
 com\uitester\core\ProjectConfig$FingerprintSettings.class
+com\uitester\core\ProjectConfig$ValidationResult.class
 com\uitester\core\Configuration.class
 com\uitester\core\ElementData.class
 com\uitester\diff\ElementChange.class
