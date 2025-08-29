@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import com.uitester.core.Configuration;
 import com.uitester.core.ElementData;
+import com.uitester.core.StructuralAnalyzer;
 
 /**
  * Detects changes between two sets of elements.
@@ -25,19 +26,24 @@ public class ChangeDetector {
     private List<ElementChange> changes;
     private Configuration configuration;
     private ElementMatcher elementMatcher;
+    private StructuralAnalyzer structuralAnalyzer; // Phase 3: Advanced structural analysis
     
     public ChangeDetector() {
         this.changes = new ArrayList<>();
         this.configuration = null; // Will use default behavior
         // Initialize ElementMatcher with default settings for Phase 2 features
         this.elementMatcher = new ElementMatcher(null);
+        // Initialize StructuralAnalyzer for Phase 3 features
+        this.structuralAnalyzer = new StructuralAnalyzer(null);
     }
     
     public ChangeDetector(Configuration configuration) {
         this.changes = new ArrayList<>();
         this.configuration = configuration;
         this.elementMatcher = configuration != null && configuration.getProjectConfig() != null ? 
-            new ElementMatcher(configuration.getProjectConfig()) : null;
+            new ElementMatcher(configuration.getProjectConfig()) : new ElementMatcher(null);
+        this.structuralAnalyzer = configuration != null && configuration.getProjectConfig() != null ?
+            new StructuralAnalyzer(configuration.getProjectConfig()) : new StructuralAnalyzer(null);
     }
     
     /**
@@ -492,6 +498,94 @@ public class ChangeDetector {
                    matchResult.getRemovedElements().size(), matchResult.getAddedElements().size());
         
         return new ArrayList<>(changes);
+    }
+
+    /**
+     * Phase 3: Comprehensive change detection with advanced structural analysis.
+     * This method provides the most advanced change detection capabilities including
+     * structural analysis, pattern recognition, and context-aware change classification.
+     * 
+     * @param oldElements List of baseline elements
+     * @param newElements List of current elements
+     * @param maxChanges Maximum number of changes to detect (null for unlimited)
+     * @return Comprehensive change analysis results
+     */
+    public ComprehensiveAnalysisResult detectChangesComprehensive(List<ElementData> oldElements, 
+                                                                 List<ElementData> newElements, 
+                                                                 Integer maxChanges) {
+        long startTime = System.currentTimeMillis();
+        logger.info("Starting Phase 3 comprehensive change detection with structural analysis");
+        
+        ComprehensiveAnalysisResult result = new ComprehensiveAnalysisResult();
+        
+        // Step 1: Perform structural analysis on both versions
+        StructuralAnalyzer.StructuralAnalysis oldStructure = structuralAnalyzer.analyzeStructure(oldElements);
+        StructuralAnalyzer.StructuralAnalysis newStructure = structuralAnalyzer.analyzeStructure(newElements);
+        
+        result.setOldStructuralAnalysis(oldStructure);
+        result.setNewStructuralAnalysis(newStructure);
+        
+        // Step 2: Detect changes using enhanced Phase 2 method
+        List<ElementChange> changes = detectChangesEnhanced(oldElements, newElements, maxChanges);
+        
+        // Step 3: Enhance changes with structural context
+        List<ElementChange> contextualChanges = structuralAnalyzer.analyzeStructuralChanges(
+            changes, oldStructure, newStructure);
+        
+        result.setChanges(contextualChanges);
+        
+        // Step 4: Calculate performance metrics
+        long endTime = System.currentTimeMillis();
+        long processingTime = endTime - startTime;
+        
+        result.setProcessingTimeMs(processingTime);
+        result.setElementsAnalyzed(oldElements.size() + newElements.size());
+        result.setChangesPerSecond(contextualChanges.size() > 0 ? 
+            (contextualChanges.size() * 1000.0 / processingTime) : 0);
+        
+        logger.info("Phase 3 comprehensive analysis complete: {} changes analyzed in {}ms", 
+                   contextualChanges.size(), processingTime);
+        
+        return result;
+    }
+    
+    /**
+     * Comprehensive analysis result containing all Phase 3 features
+     */
+    public static class ComprehensiveAnalysisResult {
+        private List<ElementChange> changes;
+        private StructuralAnalyzer.StructuralAnalysis oldStructuralAnalysis;
+        private StructuralAnalyzer.StructuralAnalysis newStructuralAnalysis;
+        private long processingTimeMs;
+        private int elementsAnalyzed;
+        private double changesPerSecond;
+        
+        public ComprehensiveAnalysisResult() {
+            this.changes = new ArrayList<>();
+        }
+        
+        // Getters and setters
+        public List<ElementChange> getChanges() { return changes; }
+        public void setChanges(List<ElementChange> changes) { this.changes = changes; }
+        
+        public StructuralAnalyzer.StructuralAnalysis getOldStructuralAnalysis() { return oldStructuralAnalysis; }
+        public void setOldStructuralAnalysis(StructuralAnalyzer.StructuralAnalysis oldStructuralAnalysis) { 
+            this.oldStructuralAnalysis = oldStructuralAnalysis; 
+        }
+        
+        public StructuralAnalyzer.StructuralAnalysis getNewStructuralAnalysis() { return newStructuralAnalysis; }
+        public void setNewStructuralAnalysis(StructuralAnalyzer.StructuralAnalysis newStructuralAnalysis) { 
+            this.newStructuralAnalysis = newStructuralAnalysis; 
+        }
+        
+        public long getProcessingTimeMs() { return processingTimeMs; }
+        public void setProcessingTimeMs(long processingTimeMs) { this.processingTimeMs = processingTimeMs; }
+        
+        public int getElementsAnalyzed() { return elementsAnalyzed; }
+        public void setElementsAnalyzed(int elementsAnalyzed) { this.elementsAnalyzed = elementsAnalyzed; }
+        
+        public double getChangesPerSecond() { return changesPerSecond; }
+        public void setChangesPerSecond(double changesPerSecond) { this.changesPerSecond = changesPerSecond; }
     }
 
     /**
