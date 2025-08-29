@@ -17,22 +17,27 @@ import com.uitester.core.ElementData;
 
 /**
  * Detects changes between two sets of elements.
- * This is equivalent to the Python ChangeDetector class.
+ * Enhanced with Phase 2 fingerprint-based matching for more resilient change detection.
  */
 public class ChangeDetector {
     private static final Logger logger = LoggerFactory.getLogger(ChangeDetector.class);
     
     private List<ElementChange> changes;
     private Configuration configuration;
+    private ElementMatcher elementMatcher;
     
     public ChangeDetector() {
         this.changes = new ArrayList<>();
         this.configuration = null; // Will use default behavior
+        // Initialize ElementMatcher with default settings for Phase 2 features
+        this.elementMatcher = new ElementMatcher(null);
     }
     
     public ChangeDetector(Configuration configuration) {
         this.changes = new ArrayList<>();
         this.configuration = configuration;
+        this.elementMatcher = configuration != null && configuration.getProjectConfig() != null ? 
+            new ElementMatcher(configuration.getProjectConfig()) : null;
     }
     
     /**
@@ -396,7 +401,101 @@ public class ChangeDetector {
     }
 
     /**
-     * Compare two sets of elements and detect all changes
+     * Phase 2: Enhanced change detection using fingerprint-based element matching.
+     * This method provides more resilient change detection that can handle DOM structure changes
+     * and dynamic selectors by using element fingerprints instead of fragile selector matching.
+     * 
+     * @param oldElements List of baseline elements
+     * @param newElements List of current elements
+     * @param maxChanges Maximum number of changes to detect (null for unlimited)
+     * @return List of changes detected
+     */
+    public List<ElementChange> detectChangesEnhanced(List<ElementData> oldElements, List<ElementData> newElements, Integer maxChanges) {
+        changes.clear();
+        
+        if (elementMatcher == null) {
+            logger.warn("ElementMatcher not available, falling back to legacy detection");
+            return detectChanges(oldElements, newElements, maxChanges);
+        }
+        
+        logger.info("Starting Phase 2 enhanced change detection with fingerprint matching");
+        
+        // Use ElementMatcher to find corresponding elements
+        ElementMatcher.MatchResult matchResult = elementMatcher.matchElements(oldElements, newElements);
+        
+        // Detect changes in matched element pairs
+        for (Map.Entry<ElementData, ElementData> entry : matchResult.getMatchedPairs().entrySet()) {
+            // Check if we've reached the maximum number of changes
+            if (maxChanges != null && changes.size() >= maxChanges) {
+                logger.info("Reached maximum changes limit: {}", maxChanges);
+                break;
+            }
+            
+            ElementData oldElement = entry.getKey();
+            ElementData newElement = entry.getValue();
+            Double matchConfidence = matchResult.getMatchConfidences().get(oldElement);
+            
+            // Detect changes between matched elements
+            List<ElementChange> elementChanges = detectElementChanges(oldElement, newElement);
+            
+            // Add match confidence information to changes
+            for (ElementChange change : elementChanges) {
+                if (matchConfidence != null && matchConfidence < 1.0) {
+                    // Flag changes where element matching had lower confidence
+                    change.setMatchConfidence(matchConfidence);
+                    if (matchConfidence < 0.8) {
+                        change.setClassification("potential"); // Uncertain match
+                    }
+                }
+                changes.add(change);
+            }
+        }
+        
+        // Handle structural changes (added/removed elements)
+        boolean detectStructural = configuration != null ? 
+            configuration.isDetectStructuralChanges() : true; // Default to true for enhanced detection
+            
+        if (detectStructural) {
+            // Add changes for removed elements
+            for (ElementData removedElement : matchResult.getRemovedElements()) {
+                if (maxChanges != null && changes.size() >= maxChanges) break;
+                
+                ElementChange change = new ElementChange();
+                change.setElement(removedElement.getSelector());
+                change.setProperty("element_removed");
+                change.setOldValue("present");
+                change.setNewValue("absent");
+                change.setChangeType("structural");
+                change.setMagnitude(1.0);
+                change.setClassification("critical");
+                changes.add(change);
+            }
+            
+            // Add changes for added elements  
+            for (ElementData addedElement : matchResult.getAddedElements()) {
+                if (maxChanges != null && changes.size() >= maxChanges) break;
+                
+                ElementChange change = new ElementChange();
+                change.setElement(addedElement.getSelector());
+                change.setProperty("element_added");
+                change.setOldValue("absent");
+                change.setNewValue("present");
+                change.setChangeType("structural");
+                change.setMagnitude(1.0);
+                change.setClassification("critical");
+                changes.add(change);
+            }
+        }
+        
+        logger.info("Phase 2 enhanced detection complete: {} total changes, {} matched pairs, {} removed, {} added",
+                   changes.size(), matchResult.getMatchedPairs().size(), 
+                   matchResult.getRemovedElements().size(), matchResult.getAddedElements().size());
+        
+        return new ArrayList<>(changes);
+    }
+
+    /**
+     * Compare two sets of elements and detect all changes (Legacy method using selector-based matching)
      * 
      * @param oldElements List of old elements
      * @param newElements List of new elements

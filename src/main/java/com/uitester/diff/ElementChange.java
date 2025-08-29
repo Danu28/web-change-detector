@@ -12,6 +12,7 @@ public class ElementChange {
     private String changeType;
     private double magnitude;
     private String classification;
+    private Double matchConfidence;  // Phase 2: Confidence score for element matching (0.0 to 1.0)
     
     /**
      * Default constructor
@@ -122,12 +123,26 @@ public class ElementChange {
         this.classification = classification;
     }
     
+    public Double getMatchConfidence() {
+        return matchConfidence;
+    }
+    
+    public void setMatchConfidence(Double matchConfidence) {
+        this.matchConfidence = matchConfidence;
+    }
+    
     @Override
     public String toString() {
-        return String.format("%s: %s changed from '%s' to '%s' (%s, magnitude: %.2f)", 
+        String base = String.format("%s: %s changed from '%s' to '%s' (%s, magnitude: %.2f)", 
                 element, property, 
                 truncateValue(oldValue), truncateValue(newValue),
                 classification, magnitude);
+        
+        if (matchConfidence != null && matchConfidence < 1.0) {
+            base += String.format(" [match confidence: %.2f]", matchConfidence);
+        }
+        
+        return base;
     }
     
     private String truncateValue(String value) {
