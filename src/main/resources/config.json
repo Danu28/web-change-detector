@@ -25,7 +25,6 @@
     "baselineFile": "baseline.json",
     "currentFile": "current.json",
     "changesFile": "changes.json",
-    "reportFile": "report.html",
     "reportSimpleFile": "report-simple.html"
   },
   "flags": {
