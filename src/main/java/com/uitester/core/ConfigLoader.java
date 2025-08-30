@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 /**
  * Utility class for loading and validating project configuration from config.json.
@@ -48,6 +49,8 @@ public class ConfigLoader {
             try {
                 config = loadConfigFromClasspath(configPath);
                 logger.info("Successfully loaded configuration from {}", configPath);
+                // Populate defaults for any newly introduced sections/fields
+                applyNewSectionDefaults(config);
             } catch (Exception e) {
                 logger.warn("Failed to load configuration from {}: {}. Using default configuration.", 
                            configPath, e.getMessage());
@@ -166,7 +169,93 @@ public class ConfigLoader {
         performanceSettings.setEnableParallelProcessing(true);
         performanceSettings.setMemoryWarningThresholdMb(512);
         config.setPerformanceSettings(performanceSettings);
+
+        // Populate defaults for new modular sections
+        applyNewSectionDefaults(config);
         
         return config;
+    }
+
+    /**
+     * Apply defaults to newly added configuration sections when missing to maintain backward compatibility.
+     */
+    private static void applyNewSectionDefaults(ProjectConfig config) {
+        if (config.getCrawlerSettings() == null) {
+            ProjectConfig.CrawlerSettings cs = new ProjectConfig.CrawlerSettings();
+            // Reuse capture styles / attributes if present
+            if (config.getCaptureSettings() != null) {
+                cs.setCssProperties(config.getCaptureSettings().getStylesToCapture());
+                cs.setAttributesToExtract(config.getCaptureSettings().getAttributesToCapture());
+            }
+            cs.setVisibilityFilter(Boolean.TRUE); // previously implicit skip of invisible elements
+            cs.setThrottleMs(0);
+            config.setCrawlerSettings(cs);
+        }
+
+        if (config.getMatchingSettings() == null) {
+            ProjectConfig.MatchingSettings ms = new ProjectConfig.MatchingSettings();
+            ms.setTagWeight(0.3);
+            ms.setTextWeight(0.4);
+            ms.setStructuralWeight(0.2);
+            ms.setContentWeight(0.1);
+            ms.setFuzzyMinConfidence(0.6);
+            ms.setSemanticPriceConfidence(0.75);
+            ms.setEnableSemanticPrice(Boolean.TRUE);
+            config.setMatchingSettings(ms);
+        }
+
+        if (config.getClassificationSettings() == null) {
+            ProjectConfig.ClassificationSettings cls = new ProjectConfig.ClassificationSettings();
+            cls.setInteractiveKeywords(Arrays.asList("button", "input", "form", "a", "select"));
+            Map<String, Double> thresholds = new HashMap<>();
+            thresholds.put("textCritical", 0.5); // magnitude threshold for critical text change
+            thresholds.put("colorCosmetic", 0.3);
+            thresholds.put("layoutCosmetic", 0.1);
+            cls.setMagnitudeThresholds(thresholds);
+            cls.setRules(new ArrayList<>()); // placeholder for future rule engine
+            config.setClassificationSettings(cls);
+        }
+
+        if (config.getStructuralAnalysisSettings() == null) {
+            ProjectConfig.StructuralAnalysisSettings sas = new ProjectConfig.StructuralAnalysisSettings();
+            sas.setListMinItems(3);
+            sas.setGridMinItems(4);
+            sas.setTableMinRows(2);
+            sas.setMaxDepthForParentSearch(10);
+            sas.setSelectorSimilarityCapDepth(10);
+            config.setStructuralAnalysisSettings(sas);
+        }
+
+        if (config.getReportingSettings() == null) {
+            ProjectConfig.ReportingSettings rs = new ProjectConfig.ReportingSettings();
+            rs.setSeverityOrder(Arrays.asList("critical", "structural", "text", "cosmetic", "noise"));
+            Map<String, String> colors = new HashMap<>();
+            colors.put("critical", "#e53e3e");
+            colors.put("structural", "#dd6b20");
+            colors.put("text", "#38a169");
+            colors.put("cosmetic", "#3182ce");
+            rs.setBadgeColors(colors);
+            rs.setAutoScrollTo("critical");
+            rs.setEnableConfidenceBar(Boolean.TRUE);
+            config.setReportingSettings(rs);
+        }
+
+        if (config.getOutputSettings() == null) {
+            ProjectConfig.OutputSettings os = new ProjectConfig.OutputSettings();
+            os.setDirectoryTemplate("{section}_{baselineHost}-vs-{currentHost}");
+            os.setBaselineFile("baseline.json");
+            os.setCurrentFile("current.json");
+            os.setChangesFile("changes.json");
+            os.setReportFile("report.html");
+            config.setOutputSettings(os);
+        }
+
+        if (config.getFlags() == null) {
+            ProjectConfig.Flags flags = new ProjectConfig.Flags();
+            flags.setEnableStructuralAnalysis(Boolean.TRUE);
+            flags.setEnableSemanticMatching(Boolean.TRUE);
+            flags.setEnableAdvancedClassification(Boolean.FALSE);
+            config.setFlags(flags);
+        }
     }
 }

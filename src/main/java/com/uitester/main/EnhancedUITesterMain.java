@@ -18,6 +18,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Enhanced UI Tester Main Application
@@ -27,8 +28,8 @@ public class EnhancedUITesterMain {
 
     private final WorkflowRunner workflowRunner;
 
-    public EnhancedUITesterMain(Configuration config, ProjectConfig projectConfig) {
-        this.workflowRunner = new WorkflowRunner(config, projectConfig);
+    public EnhancedUITesterMain(Configuration config) {
+        this.workflowRunner = new WorkflowRunner(config, config.getProjectConfig());
     }
 
     public static void main(String[] args) {
@@ -39,9 +40,12 @@ public class EnhancedUITesterMain {
         try {
             CommandLine cmd = CLIParser.parseCommandLine(args);
             Configuration config = ConfigFactory.createConfiguration(cmd);
-            ProjectConfig projectConfig = ConfigFactory.createProjectConfig(cmd);
+            // Apply overrides AFTER base config created
+            ConfigFactory.applyOverridesFromCLI(cmd, config);
+            // Recompute output paths after potential sectionName/baseline/current updates
+            config.updateOutputPaths();
 
-            EnhancedUITesterMain app = new EnhancedUITesterMain(config, projectConfig);
+            EnhancedUITesterMain app = new EnhancedUITesterMain(config);
             boolean compareOnly = cmd.hasOption("compare-only");
             app.workflowRunner.runEnhancedAnalysis(compareOnly);
 
@@ -69,12 +73,17 @@ public class EnhancedUITesterMain {
             options.addOption("b", "baseline", true, "Baseline URL");
             options.addOption("c", "current", true, "Current URL");
             options.addOption(null, "compare-only", false, "Use existing snapshots");
-            options.addOption(null, "confidence-threshold", true, "Minimum confidence");
+            options.addOption(null, "confidence-threshold", true, "Minimum text similarity threshold (maps to comparison.textSimilarityThreshold)");
             options.addOption("m", "max-elements", true, "Max elements");
             options.addOption("w", "wait-time", true, "Wait time (s)");
             options.addOption("h", "headless", false, "Headless mode");
             options.addOption(null, "xpath", true, "Container XPath");
             options.addOption("s", "section-name", true, "Section name");
+            options.addOption(Option.builder()
+                .longOpt("override")
+                .hasArgs()
+                .desc("Override config value(s) key=value (repeatable). Example: --override matching.fuzzyMinConfidence=0.7 --override performance.maxElements=2000")
+                .build());
             options.addOption("?", "help", false, "Show help");
 
             CommandLineParser parser = new DefaultParser();
@@ -96,33 +105,44 @@ public class EnhancedUITesterMain {
             Configuration config = new Configuration();
             if (cmd.hasOption("baseline")) config.setBaselineUrl(cmd.getOptionValue("baseline"));
             if (cmd.hasOption("current")) config.setCurrentUrl(cmd.getOptionValue("current"));
-            if (cmd.hasOption("max-elements"))
-                config.setMaxElements(Integer.parseInt(cmd.getOptionValue("max-elements")));
+            if (cmd.hasOption("max-elements")) config.setMaxElements(Integer.parseInt(cmd.getOptionValue("max-elements")));
             if (cmd.hasOption("wait-time")) config.setWaitTime(Integer.parseInt(cmd.getOptionValue("wait-time")));
             if (cmd.hasOption("headless")) config.setHeadless(true);
             if (cmd.hasOption("xpath")) config.setContainerXpath(cmd.getOptionValue("xpath"));
             if (cmd.hasOption("section-name")) config.setSectionName(cmd.getOptionValue("section-name"));
-            config.updateOutputPaths();
             return config;
         }
 
-        public static ProjectConfig createProjectConfig(CommandLine cmd) {
-            ProjectConfig projectConfig = new ProjectConfig();
-
-            ProjectConfig.FingerprintSettings fingerprint = new ProjectConfig.FingerprintSettings();
-            fingerprint.setUseTagName(true);
-            fingerprint.setUseTextContent(true);
-            fingerprint.setUseAttributes(java.util.Arrays.asList("id", "class", "data-*"));
-            fingerprint.setIncludePosition(true);
-            projectConfig.setFingerprintSettings(fingerprint);
-
-            ProjectConfig.ComparisonSettings comparison = new ProjectConfig.ComparisonSettings();
-            comparison.setTextSimilarityThreshold(cmd.hasOption("confidence-threshold")
-                    ? Double.parseDouble(cmd.getOptionValue("confidence-threshold")) : 0.7);
-            comparison.setColorChangeThreshold(0.1);
-            projectConfig.setComparisonSettings(comparison);
-
-            return projectConfig;
+        public static void applyOverridesFromCLI(CommandLine cmd, Configuration config) {
+            Map<String, String> overrides = new java.util.HashMap<>();
+            // Map legacy specific options to dot-notation overrides
+            if (cmd.hasOption("confidence-threshold")) {
+                overrides.put("comparison.textSimilarityThreshold", cmd.getOptionValue("confidence-threshold"));
+            }
+            if (cmd.hasOption("max-elements")) {
+                overrides.put("performance.maxElements", cmd.getOptionValue("max-elements"));
+            }
+            // Generic overrides
+            if (cmd.hasOption("override")) {
+                String[] raw = cmd.getOptionValues("override");
+                if (raw != null) {
+                    for (String r : raw) {
+                        if (r == null) continue;
+                        int idx = r.indexOf('=');
+                        if (idx > 0 && idx < r.length() - 1) {
+                            String k = r.substring(0, idx).trim();
+                            String v = r.substring(idx + 1).trim();
+                            if (!k.isEmpty() && !v.isEmpty()) overrides.put(k, v);
+                        } else {
+                            logger.warn("Ignoring malformed override '{}'. Expected key=value", r);
+                        }
+                    }
+                }
+            }
+            if (!overrides.isEmpty()) {
+                logger.info("Applying {} override(s): {}", overrides.size(), overrides.keySet());
+                config.applyOverrides(overrides);
+            }
         }
     }
 

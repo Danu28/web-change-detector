@@ -3,6 +3,10 @@ package com.uitester.core;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,9 +17,10 @@ import org.slf4j.LoggerFactory;
 public class Configuration {
     private static final Logger logger = LoggerFactory.getLogger(Configuration.class);
     
-    // Default configuration values
+    // Default configuration values (legacy fallback)
     private static final String TEST_FILES_DIR = "test_files";
-    private static final String DEFAULT_OUTPUT_DIR = "output";
+    private static final String DEFAULT_OUTPUT_ROOT = "output";
+    private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
     
     // Project configuration loaded from config.json
     private ProjectConfig projectConfig;
@@ -55,45 +60,45 @@ public class Configuration {
      * Create a new Configuration with default values
      */
     public Configuration() {
-        // Load project configuration first
-        this.projectConfig = ConfigLoader.loadConfig();
-        
-        // Set default values
-        try {
-            this.baselineUrl = "file:///" + new File(TEST_FILES_DIR, "baseline.html").getAbsolutePath();
-            this.currentUrl = "file:///" + new File(TEST_FILES_DIR, "current.html").getAbsolutePath();
-        } catch (Exception e) {
-            this.baselineUrl = "file:///test_files/baseline.html";
-            this.currentUrl = "file:///test_files/current.html";
-        }
-        
-        // Use configuration values if available, otherwise use hardcoded defaults
-        this.maxElements = projectConfig.getPerformanceSettings() != null ? 
-                          projectConfig.getPerformanceSettings().getMaxElements() : null;
-        this.waitTime = 45;
-        this.scrollTime = 2.0;
-        this.headless = false;
-        this.enableScrolling = true;
-        this.containerXpath = null;
-        this.parallelCrawling = projectConfig.getPerformanceSettings() != null ? 
-                               Boolean.TRUE.equals(projectConfig.getPerformanceSettings().getEnableParallelProcessing()) : true;
-        
-        this.viewportWidth = null;
-        this.viewportHeight = null;
-        
-        this.maxChanges = 500;
-        this.detectStructuralChanges = false; // Default to not detecting structural changes
-        
-        this.sectionName = null;
-        
-        // Output paths will be set when updateOutputPaths() is called
-        this.outputDir = null;
-        this.baselineSnapshot = null;
-        this.currentSnapshot = null;
-        this.changesFile = null;
-        this.reportFile = null;
-        
-        logger.info("Configuration initialized with project config");
+    // Load project configuration first (includes new modular sections)
+    this.projectConfig = ConfigLoader.loadConfig();
+
+    // Baseline/current default URLs (legacy local file fallback) if not overridden later
+    try {
+        this.baselineUrl = "file:///" + new File(TEST_FILES_DIR, "baseline.html").getAbsolutePath();
+        this.currentUrl = "file:///" + new File(TEST_FILES_DIR, "current.html").getAbsolutePath();
+    } catch (Exception e) {
+        this.baselineUrl = "file:///test_files/baseline.html";
+        this.currentUrl = "file:///test_files/current.html";
+    }
+
+    // Runtime / session-scoped knobs (these may be overridden via CLI)
+    this.maxElements = projectConfig.getPerformanceSettings() != null ?
+        projectConfig.getPerformanceSettings().getMaxElements() : null; // if null crawler decides
+    this.waitTime = 45; // can be CLI override
+    this.scrollTime = 2.0;
+    this.headless = false;
+    this.enableScrolling = true;
+    this.containerXpath = null;
+    this.parallelCrawling = projectConfig.getPerformanceSettings() != null ?
+        Boolean.TRUE.equals(projectConfig.getPerformanceSettings().getEnableParallelProcessing()) : true;
+    this.viewportWidth = null;
+    this.viewportHeight = null;
+    this.maxChanges = 500;
+    // Default structural detection now governed by flags (legacy field retained for backward compat)
+    this.detectStructuralChanges = projectConfig.getFlags() != null &&
+        Boolean.TRUE.equals(projectConfig.getFlags().getEnableStructuralAnalysis());
+    this.sectionName = null;
+
+    // Output paths built lazily once we know URLs / section
+    this.outputDir = null;
+    this.baselineSnapshot = null;
+    this.currentSnapshot = null;
+    this.changesFile = null;
+    this.reportFile = null;
+
+    logger.info("Configuration initialized (flags: structuralAnalysis={}, semanticMatching={}, advancedClassification={})",
+        isStructuralAnalysisEnabled(), isSemanticMatchingEnabled(), isAdvancedClassificationEnabled());
     }
 
     /**
@@ -102,21 +107,27 @@ public class Configuration {
      * @return Path to the output directory
      */
     private String createOutputDirectory() {
-        String baselineEnv = extractEnvName(baselineUrl);
-        String currentEnv = extractEnvName(currentUrl);
-        
-        // Use section name if provided, otherwise default to "full-page"
-        String section = (sectionName != null && !sectionName.isEmpty()) 
-                        ? sectionName.replaceAll("[^a-zA-Z0-9_-]", "_") 
-                        : "full-page";
-        
-        // Create directory name: section_env1-vs-env2
-        String dirName = String.format("%s_%s-vs-%s", section, baselineEnv, currentEnv);
-        
-        // Create full path
-        File outputDir = new File(DEFAULT_OUTPUT_DIR, dirName);
+        String baselineHost = extractEnvName(baselineUrl);
+        String currentHost = extractEnvName(currentUrl);
+        String section = (sectionName != null && !sectionName.isEmpty()) ? sanitizeSegment(sectionName) : "full-page";
+        String timestamp = LocalDateTime.now().format(TS_FORMAT);
+
+        String template = null;
+        if (projectConfig.getOutputSettings() != null && projectConfig.getOutputSettings().getDirectoryTemplate() != null) {
+            template = projectConfig.getOutputSettings().getDirectoryTemplate();
+        }
+        if (template == null || template.trim().isEmpty()) {
+            template = "{section}_{baselineHost}-vs-{currentHost}"; // backward compatible base
+        }
+
+        String dirName = template
+                .replace("{section}", section)
+                .replace("{baselineHost}", sanitizeSegment(baselineHost))
+                .replace("{currentHost}", sanitizeSegment(currentHost))
+                .replace("{timestamp}", timestamp);
+
+        File outputDir = new File(DEFAULT_OUTPUT_ROOT, dirName);
         outputDir.mkdirs();
-        
         return outputDir.getAbsolutePath();
     }
     
@@ -313,12 +324,156 @@ public class Configuration {
      * This is the ONLY place where the output directory is created.
      */
     public void updateOutputPaths() {
-        // Create output directory with current settings - ONLY ONCE HERE
         this.outputDir = createOutputDirectory();
-        
-        this.baselineSnapshot = new File(outputDir, "baseline.json").getAbsolutePath();
-        this.currentSnapshot = new File(outputDir, "current.json").getAbsolutePath();
-        this.changesFile = new File(outputDir, "changes.json").getAbsolutePath();
-        this.reportFile = new File(outputDir, "report.html").getAbsolutePath();
+        // Determine file names: prefer outputSettings overrides
+        String baselineName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getBaselineFile() : null, "baseline.json");
+        String currentName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getCurrentFile() : null, "current.json");
+        String changesName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getChangesFile() : null, "changes.json");
+        String reportName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getReportFile() : null, "report.html");
+
+        this.baselineSnapshot = new File(outputDir, baselineName).getAbsolutePath();
+        this.currentSnapshot = new File(outputDir, currentName).getAbsolutePath();
+        this.changesFile = new File(outputDir, changesName).getAbsolutePath();
+        this.reportFile = new File(outputDir, reportName).getAbsolutePath();
+    }
+
+    private interface FileNameSupplier { String get(); }
+    private String fileNameOrDefault(FileNameSupplier sup, String defVal) {
+        try {
+            String v = sup.get();
+            if (v != null && !v.trim().isEmpty()) return v.trim();
+        } catch (Exception ignored) {}
+        return defVal;
+    }
+
+    private String sanitizeSegment(String s) {
+        return s.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    // ================= Convenience Effective Getters =================
+
+    public int getEffectiveMaxElements() {
+        if (maxElements != null) return maxElements;
+        if (projectConfig.getPerformanceSettings() != null && projectConfig.getPerformanceSettings().getMaxElements() != null)
+            return projectConfig.getPerformanceSettings().getMaxElements();
+        return 10000; // fallback
+    }
+
+    public boolean isStructuralAnalysisEnabled() {
+        if (projectConfig.getFlags() != null && projectConfig.getFlags().getEnableStructuralAnalysis() != null)
+            return projectConfig.getFlags().getEnableStructuralAnalysis();
+        return detectStructuralChanges; // legacy field
+    }
+
+    public boolean isSemanticMatchingEnabled() {
+        if (projectConfig.getFlags() != null && projectConfig.getFlags().getEnableSemanticMatching() != null)
+            return projectConfig.getFlags().getEnableSemanticMatching();
+        return true;
+    }
+
+    public boolean isAdvancedClassificationEnabled() {
+        if (projectConfig.getFlags() != null && projectConfig.getFlags().getEnableAdvancedClassification() != null)
+            return projectConfig.getFlags().getEnableAdvancedClassification();
+        return false;
+    }
+
+    // ================= Override Application (dot-notation) =================
+
+    /**
+     * Apply string overrides using dot notation (e.g. comparison.textSimilarityThreshold=0.9)
+     * Recognized roots: comparison, matching, classification, fingerprint, performance.
+     */
+    public void applyOverrides(Map<String, String> overrides) {
+        if (overrides == null || overrides.isEmpty()) return;
+        Map<String, String> unresolved = new HashMap<>();
+        for (Map.Entry<String, String> e : overrides.entrySet()) {
+            String key = e.getKey(); String value = e.getValue(); boolean applied = false;
+            try {
+                if (key.startsWith("comparison.")) {
+                    ensureComparison();
+                    applied = applyComparisonOverride(key.substring(11), value);
+                } else if (key.startsWith("matching.")) {
+                    ensureMatching();
+                    applied = applyMatchingOverride(key.substring(9), value);
+                } else if (key.startsWith("classification.")) {
+                    ensureClassification();
+                    applied = applyClassificationOverride(key.substring(14), value);
+                } else if (key.startsWith("fingerprint.")) {
+                    ensureFingerprint();
+                    applied = applyFingerprintOverride(key.substring(12), value);
+                } else if (key.startsWith("performance.")) {
+                    ensurePerformance();
+                    applied = applyPerformanceOverride(key.substring(12), value);
+                }
+            } catch (Exception ex) {
+                logger.warn("Error applying override {}={}: {}", key, value, ex.getMessage());
+            }
+            if (!applied) unresolved.put(key, value);
+        }
+        if (!unresolved.isEmpty()) {
+            logger.warn("Unresolved overrides (ignored): {}", unresolved);
+        }
+    }
+
+    private void ensureComparison() { if (projectConfig.getComparisonSettings() == null) projectConfig.setComparisonSettings(new ProjectConfig.ComparisonSettings()); }
+    private void ensureMatching() { if (projectConfig.getMatchingSettings() == null) projectConfig.setMatchingSettings(new ProjectConfig.MatchingSettings()); }
+    private void ensureClassification() { if (projectConfig.getClassificationSettings() == null) projectConfig.setClassificationSettings(new ProjectConfig.ClassificationSettings()); }
+    private void ensureFingerprint() { if (projectConfig.getFingerprintSettings() == null) projectConfig.setFingerprintSettings(new ProjectConfig.FingerprintSettings()); }
+    private void ensurePerformance() { if (projectConfig.getPerformanceSettings() == null) projectConfig.setPerformanceSettings(new ProjectConfig.PerformanceSettings()); }
+
+    private boolean applyComparisonOverride(String field, String value) {
+        ProjectConfig.ComparisonSettings cs = projectConfig.getComparisonSettings();
+        switch (field) {
+            case "textSimilarityThreshold": cs.setTextSimilarityThreshold(Double.parseDouble(value)); return true;
+            case "numericChangeThreshold": cs.setNumericChangeThreshold(Double.parseDouble(value)); return true;
+            case "colorChangeThreshold": cs.setColorChangeThreshold(Double.parseDouble(value)); return true;
+        }
+        return false;
+    }
+    private boolean applyMatchingOverride(String field, String value) {
+        ProjectConfig.MatchingSettings ms = projectConfig.getMatchingSettings();
+        switch (field) {
+            case "tagWeight": ms.setTagWeight(Double.parseDouble(value)); return true;
+            case "textWeight": ms.setTextWeight(Double.parseDouble(value)); return true;
+            case "structuralWeight": ms.setStructuralWeight(Double.parseDouble(value)); return true;
+            case "contentWeight": ms.setContentWeight(Double.parseDouble(value)); return true;
+            case "fuzzyMinConfidence": ms.setFuzzyMinConfidence(Double.parseDouble(value)); return true;
+            case "semanticPriceConfidence": ms.setSemanticPriceConfidence(Double.parseDouble(value)); return true;
+            case "enableSemanticPrice": ms.setEnableSemanticPrice(Boolean.parseBoolean(value)); return true;
+        }
+        return false;
+    }
+    private boolean applyClassificationOverride(String field, String value) {
+        ProjectConfig.ClassificationSettings cs = projectConfig.getClassificationSettings();
+        if (field.startsWith("magnitudeThresholds.")) {
+            String name = field.substring("magnitudeThresholds.".length());
+            Map<String, Double> map = cs.getMagnitudeThresholds();
+            if (map == null) { map = new HashMap<>(); cs.setMagnitudeThresholds(map); }
+            map.put(name, Double.parseDouble(value));
+            return true;
+        }
+        return false;
+    }
+    private boolean applyFingerprintOverride(String field, String value) {
+        ProjectConfig.FingerprintSettings fs = projectConfig.getFingerprintSettings();
+        switch (field) {
+            case "useTagName": fs.setUseTagName(Boolean.parseBoolean(value)); return true;
+            case "useTextContent": fs.setUseTextContent(Boolean.parseBoolean(value)); return true;
+            case "textContentMaxLength": fs.setTextContentMaxLength(Integer.parseInt(value)); return true;
+            case "normalizeWhitespace": fs.setNormalizeWhitespace(Boolean.parseBoolean(value)); return true;
+            case "caseSensitive": fs.setCaseSensitive(Boolean.parseBoolean(value)); return true;
+            case "includePosition": fs.setIncludePosition(Boolean.parseBoolean(value)); return true;
+        }
+        return false;
+    }
+    private boolean applyPerformanceOverride(String field, String value) {
+        ProjectConfig.PerformanceSettings ps = projectConfig.getPerformanceSettings();
+        switch (field) {
+            case "maxElements": ps.setMaxElements(Integer.parseInt(value)); return true;
+            case "maxProcessingTimeMs": ps.setMaxProcessingTimeMs(Integer.parseInt(value)); return true;
+            case "enableParallelProcessing": ps.setEnableParallelProcessing(Boolean.parseBoolean(value)); return true;
+            case "memoryWarningThresholdMb": ps.setMemoryWarningThresholdMb(Integer.parseInt(value)); return true;
+        }
+        return false;
     }
 }

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -14,7 +13,6 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import org.slf4j.Logger;
@@ -26,6 +24,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.uitester.core.ElementData;
+import com.uitester.core.Configuration;
+import com.uitester.core.ProjectConfig;
 
 /**
  * DOM and CSS Crawler that extracts elements and their properties from web pages.
@@ -37,6 +37,11 @@ public class DOMCSSCrawler {
     private WebDriver driver;
     private List<ElementData> elements;
     private Set<String> cssProperties;
+    private List<String> attributesToExtract; // configurable attribute list
+    private boolean visibilityFilter = true;  // whether to skip invisible elements
+    private Integer throttleMs;               // optional delay between element processing
+    @SuppressWarnings("unused")
+    private Configuration configuration;      // reserved for future use
     
     /**
      * Initialize the DOM CSS Crawler
@@ -47,21 +52,7 @@ public class DOMCSSCrawler {
      * @param viewportHeight Browser viewport height in pixels (optional)
      */
     public DOMCSSCrawler(boolean headless, WebDriver driver, Integer viewportWidth, Integer viewportHeight) {
-        // Initialize with default CSS properties
-        this.cssProperties = new HashSet<>(Arrays.asList(
-            "color", "background-color", "font-size", "font-weight", "display",
-            "visibility", "position", "width", "height", "margin", "padding",
-            "border", "text-align", "line-height", "opacity", "z-index"
-        ));
-        
-        if (driver != null) {
-            this.driver = driver;
-            logger.info("Using provided WebDriver instance");
-        } else {
-            setupDriver(headless, viewportWidth, viewportHeight);
-        }
-        
-        this.elements = new ArrayList<>();
+        initWithConfig(null, headless, driver, viewportWidth, viewportHeight);
     }
     
     /**
@@ -74,38 +65,67 @@ public class DOMCSSCrawler {
      * @param configuration Configuration object containing CSS properties to capture
      */
     public DOMCSSCrawler(boolean headless, WebDriver driver, Integer viewportWidth, Integer viewportHeight, 
-                        com.uitester.core.Configuration configuration) {
-        // Initialize CSS properties from configuration
-        if (configuration != null && configuration.getProjectConfig() != null && 
-            configuration.getProjectConfig().getCaptureSettings() != null &&
-            configuration.getProjectConfig().getCaptureSettings().getStylesToCapture() != null) {
-            this.cssProperties = new HashSet<>(configuration.getProjectConfig().getCaptureSettings().getStylesToCapture());
-            logger.info("Using {} CSS properties from configuration", this.cssProperties.size());
+                        Configuration configuration) {
+        initWithConfig(configuration, headless, driver, viewportWidth, viewportHeight);
+    }
+    
+    /**
+     * Initialize the DOM CSS Crawler with default settings
+     */
+    public DOMCSSCrawler() { this(false, null, null, null); }
+
+    /**
+     * Unified initialization reading from new crawlerSettings where available.
+     */
+    private void initWithConfig(Configuration configuration, boolean headless, WebDriver driver, Integer viewportWidth, Integer viewportHeight) {
+        this.configuration = configuration;
+        ProjectConfig projectConfig = configuration != null ? configuration.getProjectConfig() : null;
+        ProjectConfig.CrawlerSettings crawlerSettings = projectConfig != null ? projectConfig.getCrawlerSettings() : null;
+
+        // CSS properties precedence: crawlerSettings.cssProperties -> captureSettings.stylesToCapture -> default list
+        if (crawlerSettings != null && crawlerSettings.getCssProperties() != null && !crawlerSettings.getCssProperties().isEmpty()) {
+            this.cssProperties = new HashSet<>(crawlerSettings.getCssProperties());
+            logger.info("Using {} CSS properties (crawlerSettings)", cssProperties.size());
+        } else if (projectConfig != null && projectConfig.getCaptureSettings() != null &&
+                projectConfig.getCaptureSettings().getStylesToCapture() != null &&
+                !projectConfig.getCaptureSettings().getStylesToCapture().isEmpty()) {
+            this.cssProperties = new HashSet<>(projectConfig.getCaptureSettings().getStylesToCapture());
+            logger.info("Using {} CSS properties (captureSettings)", cssProperties.size());
         } else {
-            // Fallback to default properties
             this.cssProperties = new HashSet<>(Arrays.asList(
-                "color", "background-color", "font-size", "font-weight", "display",
-                "visibility", "position", "width", "height", "margin", "padding",
-                "border", "text-align", "line-height", "opacity", "z-index"
-            ));
-            logger.warn("Using default CSS properties - configuration not available");
+                    "color", "background-color", "font-size", "font-weight", "display",
+                    "visibility", "position", "width", "height", "margin", "padding",
+                    "border", "text-align", "line-height", "opacity", "z-index"));
+            logger.warn("Using default CSS properties (no config provided)");
         }
-        
+
+        // Attributes to extract precedence: crawlerSettings.attributesToExtract -> captureSettings.attributesToCapture -> default set
+        if (crawlerSettings != null && crawlerSettings.getAttributesToExtract() != null && !crawlerSettings.getAttributesToExtract().isEmpty()) {
+            this.attributesToExtract = new ArrayList<>(crawlerSettings.getAttributesToExtract());
+        } else if (projectConfig != null && projectConfig.getCaptureSettings() != null &&
+                projectConfig.getCaptureSettings().getAttributesToCapture() != null &&
+                !projectConfig.getCaptureSettings().getAttributesToCapture().isEmpty()) {
+            this.attributesToExtract = new ArrayList<>(projectConfig.getCaptureSettings().getAttributesToCapture());
+        } else {
+            this.attributesToExtract = Arrays.asList("id", "class", "aria-label", "alt", "href", "src", "type", "role");
+        }
+
+        // Visibility filter & throttle
+        if (crawlerSettings != null && crawlerSettings.getVisibilityFilter() != null) {
+            this.visibilityFilter = crawlerSettings.getVisibilityFilter();
+        }
+        if (crawlerSettings != null) {
+            this.throttleMs = crawlerSettings.getThrottleMs();
+        }
+
         if (driver != null) {
             this.driver = driver;
             logger.info("Using provided WebDriver instance");
         } else {
             setupDriver(headless, viewportWidth, viewportHeight);
         }
-        
+
         this.elements = new ArrayList<>();
-    }
-    
-    /**
-     * Initialize the DOM CSS Crawler with default settings
-     */
-    public DOMCSSCrawler() {
-        this(false, null, null, null);
     }
     
     /**
@@ -160,9 +180,7 @@ public class DOMCSSCrawler {
      */
     private Map<String, String> extractAttributes(WebElement element) {
         Map<String, String> attributes = new HashMap<>();
-        String[] attributesToExtract = {"id", "class", "aria-label", "alt", "href", "src", "type", "role"};
-        
-        for (String attr : attributesToExtract) {
+        for (String attr : this.attributesToExtract) {
             try {
                 String value = element.getAttribute(attr);
                 if (value != null && !value.isEmpty()) {
@@ -311,6 +329,7 @@ public class DOMCSSCrawler {
                         "    class: parentClass ? parentClass.split(' ')[0] : ''" +
                         "};";
                     
+                    @SuppressWarnings("unchecked")
                     Map<String, String> parentInfo = (Map<String, String>) ((JavascriptExecutor) driver).executeScript(parentScript, element);
                     
                     // Get position among siblings of same tag
@@ -398,8 +417,8 @@ public class DOMCSSCrawler {
                     break;
                 }
                 
-                // Skip invisible elements
-                if (!element.isDisplayed()) {
+                // Skip invisible elements if visibilityFilter enabled
+                if (visibilityFilter && !element.isDisplayed()) {
                     continue;
                 }
                 
@@ -420,11 +439,18 @@ public class DOMCSSCrawler {
                 elementData.setSelector(selector);
                 elementData.setAttributes(attributes);
                 elementData.setStyles(styles);
-                elementData.setPosition((Map<String, Object>) positionData.get("position"));
+                @SuppressWarnings("unchecked")
+                Map<String, Object> pos = (Map<String, Object>) positionData.get("position");
+                elementData.setPosition(pos);
                 elementData.setInViewport((Boolean) positionData.get("inViewport"));
                 
                 elements.add(elementData);
                 processedCount++;
+
+                // Throttle if configured
+                if (throttleMs != null && throttleMs > 0) {
+                    try { Thread.sleep(throttleMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
                 
             } catch (StaleElementReferenceException e) {
                 // Element no longer exists in DOM, skip it

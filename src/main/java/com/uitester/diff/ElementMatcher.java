@@ -17,9 +17,46 @@ public class ElementMatcher {
     private static final Logger logger = LoggerFactory.getLogger(ElementMatcher.class);
     
     private final ProjectConfig config;
+    // Config-driven weights & thresholds (fallback to legacy defaults)
+    private double tagWeight = 0.3;
+    private double textWeight = 0.4;
+    private double structuralWeight = 0.2;
+    private double contentWeight = 0.1;
+    private double fuzzyMinConfidence = 0.6;
+    private double semanticPriceConfidence = 0.75;
+    private boolean enableSemanticPrice = true;
+    private boolean enableSemanticMatchingFlag = true; // from flags if present
     
     public ElementMatcher(ProjectConfig config) {
         this.config = config;
+        loadMatchingSettings();
+    }
+
+    private void loadMatchingSettings() {
+        if (config == null) return;
+        ProjectConfig.MatchingSettings ms = config.getMatchingSettings();
+        if (ms != null) {
+            if (ms.getTagWeight() != null) tagWeight = ms.getTagWeight();
+            if (ms.getTextWeight() != null) textWeight = ms.getTextWeight();
+            if (ms.getStructuralWeight() != null) structuralWeight = ms.getStructuralWeight();
+            if (ms.getContentWeight() != null) contentWeight = ms.getContentWeight();
+            if (ms.getFuzzyMinConfidence() != null) fuzzyMinConfidence = ms.getFuzzyMinConfidence();
+            if (ms.getSemanticPriceConfidence() != null) semanticPriceConfidence = ms.getSemanticPriceConfidence();
+            if (ms.getEnableSemanticPrice() != null) enableSemanticPrice = ms.getEnableSemanticPrice();
+        }
+        if (config.getFlags() != null && config.getFlags().getEnableSemanticMatching() != null) {
+            enableSemanticMatchingFlag = config.getFlags().getEnableSemanticMatching();
+        }
+        double sum = tagWeight + textWeight + structuralWeight + contentWeight;
+        if (sum <= 0) {
+            tagWeight = 0.3; textWeight = 0.4; structuralWeight = 0.2; contentWeight = 0.1; sum = 1.0;
+        }
+        // Normalize to sum 1 to keep confidence scale stable
+        tagWeight /= sum; textWeight /= sum; structuralWeight /= sum; contentWeight /= sum;
+        logger.info("ElementMatcher weights -> tag: {}, text: {}, structural: {}, content: {}; fuzzyMinConfidence: {}, semanticPriceConfidence: {}, semanticEnabled: {}", 
+            String.format("%.2f", tagWeight), String.format("%.2f", textWeight), 
+            String.format("%.2f", structuralWeight), String.format("%.2f", contentWeight), 
+            String.format("%.2f", fuzzyMinConfidence), String.format("%.2f", semanticPriceConfidence), (enableSemanticPrice && enableSemanticMatchingFlag));
     }
     
     /**
@@ -95,7 +132,7 @@ public class ElementMatcher {
             
         for (ElementData baseline : unmatchedBaseline) {
             FuzzyMatch fuzzyMatch = findBestFuzzyMatch(baseline, currentElements, usedCurrentElements);
-            if (fuzzyMatch != null && fuzzyMatch.confidence >= 0.6) {
+            if (fuzzyMatch != null && fuzzyMatch.confidence >= fuzzyMinConfidence) {
                 matchedPairs.put(baseline, fuzzyMatch.element);
                 matchConfidences.put(baseline, fuzzyMatch.confidence);
                 usedCurrentElements.add(fuzzyMatch.element);
@@ -105,19 +142,20 @@ public class ElementMatcher {
         }
         
         // Phase 2.5: Semantic Content Matching (for price-like elements)
-        List<ElementData> stillUnmatchedBaseline = baselineElements.stream()
-            .filter(e -> !matchedPairs.containsKey(e))
-            .collect(Collectors.toList());
-            
-        for (ElementData baseline : stillUnmatchedBaseline) {
-            ElementData semanticMatch = findSemanticContentMatch(baseline, currentElements, usedCurrentElements);
-            if (semanticMatch != null) {
-                matchedPairs.put(baseline, semanticMatch);
-                matchConfidences.put(baseline, 0.75); // Medium confidence for semantic matches
-                usedCurrentElements.add(semanticMatch);
-                logger.info("✨ Semantic content match: {} ('{}') -> {} ('{}')", 
-                           baseline.getSelector(), baseline.getText(),
-                           semanticMatch.getSelector(), extractAllText(semanticMatch));
+        if (enableSemanticPrice && enableSemanticMatchingFlag) {
+            List<ElementData> stillUnmatchedBaseline = baselineElements.stream()
+                .filter(e -> !matchedPairs.containsKey(e))
+                .collect(Collectors.toList());
+            for (ElementData baseline : stillUnmatchedBaseline) {
+                ElementData semanticMatch = findSemanticContentMatch(baseline, currentElements, usedCurrentElements);
+                if (semanticMatch != null) {
+                    matchedPairs.put(baseline, semanticMatch);
+                    matchConfidences.put(baseline, semanticPriceConfidence);
+                    usedCurrentElements.add(semanticMatch);
+                    logger.info("✨ Semantic content match: {} ('{}') -> {} ('{}') [conf={}]", 
+                               baseline.getSelector(), baseline.getText(),
+                               semanticMatch.getSelector(), extractAllText(semanticMatch), String.format("%.2f", semanticPriceConfidence));
+                }
             }
         }
         
@@ -205,32 +243,32 @@ public class ElementMatcher {
         double totalWeight = 0.0;
         double weightedScore = 0.0;
         
-        // Tag name similarity (weight: 0.3)
+        // Tag name similarity
         if (baseline.getTagName() != null && candidate.getTagName() != null) {
             double tagScore = baseline.getTagName().equals(candidate.getTagName()) ? 1.0 : 0.0;
-            weightedScore += tagScore * 0.3;
-            totalWeight += 0.3;
+            weightedScore += tagScore * tagWeight;
+            totalWeight += tagWeight;
         }
         
-        // Text content similarity (weight: 0.4)
+        // Text content similarity
         if (baseline.getText() != null && candidate.getText() != null) {
             double textScore = calculateTextSimilarity(baseline.getText(), candidate.getText());
-            weightedScore += textScore * 0.4;
-            totalWeight += 0.4;
+            weightedScore += textScore * textWeight;
+            totalWeight += textWeight;
         }
         
-        // Structural fingerprint similarity (weight: 0.2)
+        // Structural fingerprint similarity
         if (baseline.getStructuralFingerprint() != null && candidate.getStructuralFingerprint() != null) {
             double structScore = baseline.getStructuralFingerprint().equals(candidate.getStructuralFingerprint()) ? 1.0 : 0.5;
-            weightedScore += structScore * 0.2;
-            totalWeight += 0.2;
+            weightedScore += structScore * structuralWeight;
+            totalWeight += structuralWeight;
         }
         
-        // Content fingerprint similarity (weight: 0.1)
+        // Content fingerprint similarity
         if (baseline.getContentFingerprint() != null && candidate.getContentFingerprint() != null) {
             double contentScore = baseline.getContentFingerprint().equals(candidate.getContentFingerprint()) ? 1.0 : 0.0;
-            weightedScore += contentScore * 0.1;
-            totalWeight += 0.1;
+            weightedScore += contentScore * contentWeight;
+            totalWeight += contentWeight;
         }
         
         return totalWeight > 0 ? weightedScore / totalWeight : 0.0;
