@@ -70,9 +70,10 @@ public class ChangeAnalyzer {
         String details;
         String impact;
         
-        if ("CSS_MODIFICATION".equals(changeType) && "styles".equals(property)) {
+        if (("CSS_MODIFICATION".equals(changeType) && "styles".equals(property)) ||
+            "style".equals(changeType) || changeType.startsWith("style_")) {
             return analyzeCSSChange(element, oldValue, newValue, confidence);
-        } else if ("TEXT_MODIFICATION".equals(changeType)) {
+        } else if ("TEXT_MODIFICATION".equals(changeType) || "text".equals(changeType)) {
             return analyzeTextChange(element, oldValue, newValue, confidence);
         } else if ("ELEMENT_ADDED".equals(changeType)) {
             summary = "New element added";
@@ -82,6 +83,10 @@ public class ChangeAnalyzer {
             summary = "Element removed";
             details = "The " + extractTagName(element) + " element was removed from the page";
             impact = "Content removal - may affect layout";
+        } else if ("attribute".equals(changeType)) {
+            return analyzeAttributeChange(element, property, oldValue, newValue, confidence);
+        } else if ("layout".equals(changeType)) {
+            return analyzeLayoutChange(element, property, oldValue, newValue, confidence);
         } else {
             summary = "Unknown change";
             details = "Change type: " + changeType;
@@ -251,14 +256,118 @@ public class ChangeAnalyzer {
         
         // Calculate confidence based on change type
         String changeType = change.getChangeType();
-        if ("CSS_MODIFICATION".equals(changeType)) {
+        if ("CSS_MODIFICATION".equals(changeType) || "style".equals(changeType) || changeType.startsWith("style_")) {
             return 0.9; // High confidence for style changes
-        } else if ("TEXT_MODIFICATION".equals(changeType)) {
+        } else if ("TEXT_MODIFICATION".equals(changeType) || "text".equals(changeType)) {
             return 0.95; // Very high confidence for text changes
         } else if ("ELEMENT_ADDED".equals(changeType) || "ELEMENT_REMOVED".equals(changeType)) {
             return 1.0; // Certain for structural changes
+        } else if ("attribute".equals(changeType)) {
+            return 0.85; // High confidence for attribute changes
+        } else if ("layout".equals(changeType)) {
+            return 0.8; // Good confidence for layout changes
         }
         
         return 0.7; // Default moderate confidence
+    }
+    
+    /**
+     * Analyze attribute changes
+     */
+    private static EnhancedChange analyzeAttributeChange(String element, String property, String oldValue, String newValue, double confidence) {
+        String attributeName = property.startsWith("attr_") ? property.substring(5) : property;
+        String summary;
+        String details;
+        String impact;
+        
+        if ("src".equals(attributeName)) {
+            summary = "Image source changed";
+            details = String.format("Image source changed from %s to %s", 
+                truncateUrl(oldValue), truncateUrl(newValue));
+            impact = "Image content change - may affect visual appearance";
+        } else if ("href".equals(attributeName)) {
+            summary = "Link destination changed";
+            details = String.format("Link target changed from %s to %s", 
+                truncateUrl(oldValue), truncateUrl(newValue));
+            impact = "Navigation change - affects user experience";
+        } else if ("class".equals(attributeName)) {
+            summary = "CSS classes changed";
+            details = String.format("CSS classes changed from '%s' to '%s'", oldValue, newValue);
+            impact = "Styling change - may affect appearance";
+        } else if ("id".equals(attributeName)) {
+            summary = "Element ID changed";
+            details = String.format("Element ID changed from '%s' to '%s'", oldValue, newValue);
+            impact = "Identity change - may affect functionality";
+        } else {
+            summary = String.format("%s attribute changed", attributeName);
+            details = String.format("Attribute '%s' changed from '%s' to '%s'", 
+                attributeName, truncateText(oldValue), truncateText(newValue));
+            impact = "Attribute modification - impact varies";
+        }
+        
+        return new EnhancedChange(element, summary, details, impact, confidence, "attribute");
+    }
+    
+    /**
+     * Analyze layout/position changes
+     */
+    private static EnhancedChange analyzeLayoutChange(String element, String property, String oldValue, String newValue, double confidence) {
+        String summary;
+        String details;
+        String impact;
+        
+        if (property.startsWith("position_")) {
+            String direction = property.substring(9); // Remove "position_"
+            summary = String.format("Element moved (%s)", direction);
+            details = String.format("Position %s changed from %s to %s pixels", 
+                direction, oldValue, newValue);
+            
+            // Calculate movement magnitude
+            try {
+                int oldPos = Integer.parseInt(oldValue);
+                int newPos = Integer.parseInt(newValue);
+                int movement = Math.abs(newPos - oldPos);
+                
+                if (movement > 50) {
+                    impact = String.format("Significant layout shift - moved %d pixels", movement);
+                } else if (movement > 10) {
+                    impact = String.format("Minor layout adjustment - moved %d pixels", movement);
+                } else {
+                    impact = String.format("Slight position change - moved %d pixels", movement);
+                }
+            } catch (NumberFormatException e) {
+                impact = "Position change detected";
+            }
+        } else {
+            summary = "Layout property changed";
+            details = String.format("Layout property '%s' changed from %s to %s", 
+                property, oldValue, newValue);
+            impact = "Layout change - may affect positioning";
+        }
+        
+        return new EnhancedChange(element, summary, details, impact, confidence, "layout");
+    }
+    
+    /**
+     * Truncate URL for display
+     */
+    private static String truncateUrl(String url) {
+        if (url == null) return "null";
+        if (url.length() <= 50) return url;
+        
+        // Try to keep domain visible
+        try {
+            if (url.startsWith("http")) {
+                String domain = url.substring(url.indexOf("//") + 2);
+                if (domain.contains("/")) {
+                    domain = domain.substring(0, domain.indexOf("/"));
+                }
+                return domain + "/..." + url.substring(url.length() - 20);
+            }
+        } catch (Exception e) {
+            // Fall back to simple truncation
+        }
+        
+        return url.substring(0, 25) + "..." + url.substring(url.length() - 15);
     }
 }
