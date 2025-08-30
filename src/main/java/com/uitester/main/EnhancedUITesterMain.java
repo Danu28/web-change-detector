@@ -116,6 +116,27 @@ public class EnhancedUITesterMain {
         List<ElementChange> structurallyEnhancedChanges = structuralAnalyzer.analyzeStructuralChanges(
             changes, baselineStructure, currentStructure);
         
+        // Debug: Log all changes before saving
+        logger.info("🔍 DEBUG: About to save {} changes to file", structurallyEnhancedChanges.size());
+        for (int i = 0; i < structurallyEnhancedChanges.size(); i++) {
+            ElementChange change = structurallyEnhancedChanges.get(i);
+            logger.info("🔍 DEBUG: Change #{}: {} - {} ({})", i+1, 
+                       change.getElement(), change.getChangeType(), change.getProperty());
+            if ("TEXT_MODIFICATION".equals(change.getChangeType())) {
+                logger.info("🔍 DEBUG: TEXT_MODIFICATION details: '{}' -> '{}'", 
+                           change.getOldValue(), change.getNewValue());
+            }
+        }
+        
+        // Debug: Log what types of changes we're about to save
+        logger.info("📊 About to save {} changes:", structurallyEnhancedChanges.size());
+        for (ElementChange change : structurallyEnhancedChanges) {
+            logger.info("  - {} change for {}: {}", 
+                change.getChangeType(), 
+                change.getElement(), 
+                change.getProperty());
+        }
+        
         // Save enhanced changes
         saveChangesToFile(structurallyEnhancedChanges, config.getChangesFile());
         
