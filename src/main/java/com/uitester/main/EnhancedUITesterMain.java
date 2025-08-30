@@ -43,7 +43,6 @@ public class EnhancedUITesterMain {
 
             EnhancedUITesterMain app = new EnhancedUITesterMain(config, projectConfig);
             boolean compareOnly = cmd.hasOption("compare-only");
-            compareOnly = true; // Force compare-only mode for testing
             app.workflowRunner.runEnhancedAnalysis(compareOnly);
 
             logger.info("✅ Enhanced UI Testing completed successfully!");

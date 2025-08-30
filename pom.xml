@@ -134,7 +134,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.uitester.main.UITesterApplication</mainClass>
+                            <mainClass>com.uitester.main.EnhancedUITesterMain</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

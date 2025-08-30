@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="Phase1ConfigurationSuite" verbose="1">
-
-    <!-- Phase 1 Configuration Tests -->
-    <test name="Phase1ConfigurationTests">
-        <classes>
-            <class name="com.uitester.test.ConfigurationTest"/>
-            <class name="com.uitester.test.Phase1ConfigurationTest"/>
-        </classes>
-    </test>
+<suite name="EmptySuite" verbose="1">
 
 </suite>

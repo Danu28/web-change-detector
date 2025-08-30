@@ -193,34 +193,35 @@ public class SimpleReportGenerator {
         } else {
             for (int i = 0; i < changes.size(); i++) {
                 ElementChange change = changes.get(i);
-                ChangeAnalyzer.EnhancedChange analyzed = ChangeAnalyzer.analyzeChange(change);
                 
                 String changeClass = getEnhancedChangeClass(change);
                 String changeIcon = getChangeIcon(change);
-                String confidencePercent = String.format("%.1f", analyzed.getConfidence() * 100);
+                String confidencePercent = change.getMatchConfidence() != null ? 
+                    String.format("%.1f", change.getMatchConfidence() * 100) : "N/A";
                 
                 html.append("<div class='change ").append(changeClass).append("' data-type='").append(changeClass).append("'>\n")
                     .append("<div class='change-header'>\n")
                     .append("<div class='change-title'>").append(changeIcon).append(" Change #").append(i + 1).append("</div>\n")
                     .append("<div class='change-type-badge' style='background: ").append(getBadgeColor(changeClass)).append("; color: white;'>")
-                    .append(escapeHtml(analyzed.getChangeType())).append("</div>\n")
+                    .append(escapeHtml(change.getChangeType())).append("</div>\n")
                     .append("</div>\n")
                     
-                    .append("<div class='element-name'>&#128205; ").append(escapeHtml(analyzed.getElement())).append("</div>\n")
-                    .append("<div class='summary-text'>").append(escapeHtml(analyzed.getSummary())).append("</div>\n");
+                    .append("<div class='element-name'>&#128205; ").append(escapeHtml(change.getElement())).append("</div>\n")
+                    .append("<div class='summary-text'>").append(escapeHtml(change.getProperty() + " changed")).append("</div>\n");
                 
                 // Enhanced details section
-                if (analyzed.getDetails() != null && !analyzed.getDetails().trim().isEmpty()) {
+                String details = getChangeDetails(change);
+                if (details != null && !details.trim().isEmpty()) {
                     html.append("<div class='details'>\n")
                         .append("<strong>Details:</strong><br>\n")
-                        .append(escapeHtml(analyzed.getDetails()).replace("\n", "<br>\n"))
+                        .append(escapeHtml(details).replace("\n", "<br>\n"))
                         .append("</div>\n");
                 }
                 
                 // Impact assessment
                 html.append("<div class='impact'>\n")
                     .append("<strong>&#128161; Impact Assessment:</strong> ")
-                    .append(escapeHtml(analyzed.getImpact()))
+                    .append(escapeHtml(getChangeImpact(change)))
                     .append("</div>\n");
                 
                 // Confidence visualization
@@ -230,7 +231,7 @@ public class SimpleReportGenerator {
                     .append("<div class='confidence-text'>\n")
                     .append("<span>Confidence Level</span>\n")
                     .append("<span><strong>").append(confidencePercent).append("%</strong> ")
-                    .append(getConfidenceLabel(analyzed.getConfidence())).append("</span>\n")
+                    .append(getConfidenceLabel(change.getMatchConfidence() != null ? change.getMatchConfidence() : 0.0)).append("</span>\n")
                     .append("</div>\n")
                     .append("</div>\n");
             }
@@ -378,5 +379,48 @@ public class SimpleReportGenerator {
                   .replace(">", "&gt;")
                   .replace("\"", "&quot;")
                   .replace("'", "&#x27;");
+    }
+    
+    /**
+     * Extract details from change object
+     */
+    private String getChangeDetails(ElementChange change) {
+        StringBuilder details = new StringBuilder();
+        
+        if (change.getOldValue() != null && change.getNewValue() != null) {
+            details.append("Changed from: ").append(change.getOldValue())
+                   .append("\nTo: ").append(change.getNewValue());
+        } else if (change.getOldValue() != null) {
+            details.append("Removed: ").append(change.getOldValue());
+        } else if (change.getNewValue() != null) {
+            details.append("Added: ").append(change.getNewValue());
+        }
+        
+        return details.toString();
+    }
+    
+    /**
+     * Generate impact assessment based on change type
+     */
+    private String getChangeImpact(ElementChange change) {
+        String changeType = change.getChangeType();
+        
+        if (changeType == null) {
+            return "Unknown impact";
+        }
+        
+        if (changeType.contains("ADDED")) {
+            return "New element added to the interface";
+        } else if (changeType.contains("REMOVED")) {
+            return "Element removed from the interface";
+        } else if (changeType.contains("CSS")) {
+            return "Visual style changes that might affect user experience";
+        } else if (changeType.contains("TEXT")) {
+            return "Content changes that might affect user understanding";
+        } else if (changeType.contains("ATTRIBUTE")) {
+            return "Attribute changes that might affect functionality";
+        } else {
+            return "Changes detected that might affect user experience";
+        }
     }
 }
