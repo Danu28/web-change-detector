@@ -438,11 +438,12 @@ public class StructuralAnalyzer {
             .collect(Collectors.toList());
         
         if (!navNodes.isEmpty()) {
+            double conf = getPatternConfidence("navigation", 0.8);
             patterns.add(new StructuralPattern(
                 "navigation",
                 navNodes,
                 "Navigation elements detected with " + navNodes.size() + " components",
-                0.8
+                conf
             ));
         }
         
@@ -468,11 +469,12 @@ public class StructuralAnalyzer {
                     .count();
                 
         if (liChildren >= listMin) { // configurable threshold
+                    double conf = getPatternConfidence("list", 0.9);
                     patterns.add(new StructuralPattern(
                         "list",
                         Arrays.asList(node),
                         tagName.toUpperCase() + " with " + liChildren + " items",
-                        0.9
+                        conf
                     ));
                 }
             }
@@ -507,11 +509,12 @@ public class StructuralAnalyzer {
                 .count();
             
             if (controlCount >= 2) {
+                double conf = getPatternConfidence("form", 0.85);
                 patterns.add(new StructuralPattern(
                     "form",
                     Arrays.asList(formNode),
                     "Form with " + controlCount + " controls",
-                    0.85
+                    conf
                 ));
             }
         }
@@ -539,11 +542,12 @@ public class StructuralAnalyzer {
                 .count();
             
             if (rowCount >= tableMin) {
+                double conf = getPatternConfidence("table", 0.9);
                 patterns.add(new StructuralPattern(
                     "table",
                     Arrays.asList(tableNode),
                     "Table with " + rowCount + " rows",
-                    0.9
+                    conf
                 ));
             }
         }
@@ -561,11 +565,12 @@ public class StructuralAnalyzer {
         for (StructuralNode gridNode : gridNodes) {
             if (gridNode.getChildren().size() >= gridMin) { // configurable grid threshold
                 String display = gridNode.getElement().getStyles().get("display");
+                double conf = getPatternConfidence("css-grid", 0.7);
                 patterns.add(new StructuralPattern(
                     "css-grid",
                     Arrays.asList(gridNode),
                     display.toUpperCase() + " layout with " + gridNode.getChildren().size() + " items",
-                    0.7
+                    conf
                 ));
             }
         }
@@ -684,4 +689,12 @@ public class StructuralAnalyzer {
     private ProjectConfig.StructuralAnalysisSettings sa() { return config != null ? config.getStructuralAnalysisSettings() : null; }
     private boolean structuralAnalysisEnabled() { return config == null || config.getFlags() == null || Boolean.TRUE.equals(config.getFlags().getEnableStructuralAnalysis()); }
     private int getOrDefault(Integer val, int def) { return val != null ? val : def; }
+    private double getPatternConfidence(String key, double defVal) {
+        if (config != null && config.getStructuralAnalysisSettings() != null &&
+            config.getStructuralAnalysisSettings().getPatternConfidence() != null) {
+            Double v = config.getStructuralAnalysisSettings().getPatternConfidence().get(key);
+            if (v != null) return v;
+        }
+        return defVal;
+    }
 }

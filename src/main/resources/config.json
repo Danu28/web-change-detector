@@ -105,5 +105,83 @@
     "maxProcessingTimeMs": 300000,
     "enableParallelProcessing": true,
     "memoryWarningThresholdMb": 512
+  },
+  "crawlerSettings": {
+    "cssProperties": ["color","background-color","font-size","font-weight","font-family","width","height","position","margin","padding","border"],
+    "attributesToExtract": ["href","src","alt","id","class","type","data-testid"],
+    "visibilityFilter": true,
+    "throttleMs": 0
+  },
+  "matchingSettings": {
+    "tagWeight": 0.3,
+    "textWeight": 0.4,
+    "structuralWeight": 0.2,
+    "contentWeight": 0.1,
+    "fuzzyMinConfidence": 0.6,
+    "semanticPriceConfidence": 0.75,
+    "enableSemanticPrice": true
+  },
+  "classificationSettings": {
+    "interactiveKeywords": ["button","input","form","a","select"],
+    "accessibilityKeywords": ["aria","alt","role"],
+    "magnitudeThresholds": {
+      "textCritical": 0.5,
+      "colorCosmetic": 0.3,
+      "layoutCosmetic": 0.1,
+      "styleCritical": 0.6,
+      "styleCosmetic": 0.2,
+      "positionBase": 0.5
+    },
+    "rules": [
+      { "propertyContains": "font-size", "minMagnitude": 0.4, "classification": "cosmetic" },
+      { "propertyContains": "aria-", "classification": "critical" }
+    ]
+  },
+  "structuralAnalysisSettings": {
+    "listMinItems": 3,
+    "gridMinItems": 4,
+    "tableMinRows": 2,
+    "maxDepthForParentSearch": 50,
+    "selectorSimilarityCapDepth": 10,
+    "patternConfidence": {
+      "navigation": 0.8,
+      "list": 0.9,
+      "form": 0.85,
+      "table": 0.9,
+      "css-grid": 0.7
+    }
+  },
+  "reportingSettings": {
+    "severityOrder": ["critical","structural","text","cosmetic"],
+    "badgeColors": {"critical": "#e53e3e","structural": "#dd6b20","text": "#38a169","cosmetic": "#3182ce"},
+    "autoScrollTo": "critical",
+    "enableConfidenceBar": true,
+    "themeColors": {
+      "accentPrimary": "#667eea",
+      "accentSecondary": "#764ba2",
+      "backgroundSoft": "#f8fafc",
+      "panelBackground": "#ffffff",
+      "borderColor": "#e2e8f0"
+    },
+    "confidenceLevels": [
+      {"min":0.9,"label":"Very High"},
+      {"min":0.75,"label":"High"},
+      {"min":0.5,"label":"Medium"},
+      {"min":0.25,"label":"Low"},
+      {"min":0.0,"label":"Very Low"}
+    ]
+  },
+  "outputSettings": {
+    "directoryTemplate": "{section}_{baselineHost}-vs-{currentHost}_{timestamp}",
+    "baselineFile": "baseline.json",
+    "currentFile": "current.json",
+    "changesFile": "changes.json",
+    "reportFile": "report.html",
+    "reportSimpleFile": "report-simple.html"
+  },
+  "flags": {
+    "enableStructuralAnalysis": true,
+    "enableSemanticMatching": true,
+    "enableAdvancedClassification": false
   }
 }

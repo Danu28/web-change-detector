@@ -312,9 +312,9 @@ public class EnhancedUITesterMain {
         void generate(List<ElementChange> changes,
                       List<ElementData> baseline,
                       List<ElementData> current) throws IOException {
-            String reportPath = config.getReportFile().replace(".html", "-simple.html");
-            new SimpleReportGenerator(config.getProjectConfig()).generateReport(changes, baseline, current, reportPath);
-            logger.info("📄 Report generated: {}", reportPath);
+            String simplePath = config.getReportSimpleFile() != null ? config.getReportSimpleFile() : config.getReportFile().replace(".html", "-simple.html");
+            new SimpleReportGenerator(config.getProjectConfig()).generateReport(changes, baseline, current, simplePath);
+            logger.info("📄 Report generated: {}", simplePath);
         }
     }
 

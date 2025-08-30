@@ -518,11 +518,14 @@ public class ProjectConfig {
     /** Classification rule settings */
     public static class ClassificationSettings {
         @JsonProperty("interactiveKeywords") private List<String> interactiveKeywords; // default [button,input,form,a,select]
+    @JsonProperty("accessibilityKeywords") private List<String> accessibilityKeywords; // default [aria,alt,role]
         @JsonProperty("magnitudeThresholds") private Map<String, Double> magnitudeThresholds; // per category thresholds
         @JsonProperty("rules") private List<Map<String, Object>> rules; // future rule engine (conditions -> label)
 
         public List<String> getInteractiveKeywords() { return interactiveKeywords; }
         public void setInteractiveKeywords(List<String> interactiveKeywords) { this.interactiveKeywords = interactiveKeywords; }
+    public List<String> getAccessibilityKeywords() { return accessibilityKeywords; }
+    public void setAccessibilityKeywords(List<String> accessibilityKeywords) { this.accessibilityKeywords = accessibilityKeywords; }
         public Map<String, Double> getMagnitudeThresholds() { return magnitudeThresholds; }
         public void setMagnitudeThresholds(Map<String, Double> magnitudeThresholds) { this.magnitudeThresholds = magnitudeThresholds; }
         public List<Map<String, Object>> getRules() { return rules; }
@@ -536,6 +539,7 @@ public class ProjectConfig {
         @JsonProperty("tableMinRows") private Integer tableMinRows; // default 2
         @JsonProperty("maxDepthForParentSearch") private Integer maxDepthForParentSearch; // heuristic cap
         @JsonProperty("selectorSimilarityCapDepth") private Integer selectorSimilarityCapDepth; // avoid deep similarity loops
+    @JsonProperty("patternConfidence") private Map<String, Double> patternConfidence; // navigation,list,form,table,css-grid
 
         public Integer getListMinItems() { return listMinItems; }
         public void setListMinItems(Integer listMinItems) { this.listMinItems = listMinItems; }
@@ -547,6 +551,8 @@ public class ProjectConfig {
         public void setMaxDepthForParentSearch(Integer maxDepthForParentSearch) { this.maxDepthForParentSearch = maxDepthForParentSearch; }
         public Integer getSelectorSimilarityCapDepth() { return selectorSimilarityCapDepth; }
         public void setSelectorSimilarityCapDepth(Integer selectorSimilarityCapDepth) { this.selectorSimilarityCapDepth = selectorSimilarityCapDepth; }
+    public Map<String, Double> getPatternConfidence() { return patternConfidence; }
+    public void setPatternConfidence(Map<String, Double> patternConfidence) { this.patternConfidence = patternConfidence; }
     }
 
     /** Reporting customization */
@@ -555,6 +561,8 @@ public class ProjectConfig {
         @JsonProperty("badgeColors") private Map<String, String> badgeColors; // override colors
         @JsonProperty("autoScrollTo") private String autoScrollTo; // severity to focus
         @JsonProperty("enableConfidenceBar") private Boolean enableConfidenceBar; // default true
+    @JsonProperty("themeColors") private Map<String, String> themeColors; // accentPrimary, accentSecondary, backgroundSoft, panelBackground, borderColor
+    @JsonProperty("confidenceLevels") private List<Map<String, Object>> confidenceLevels; // [{min:0.9,label:Very High},...]
 
         public List<String> getSeverityOrder() { return severityOrder; }
         public void setSeverityOrder(List<String> severityOrder) { this.severityOrder = severityOrder; }
@@ -564,6 +572,10 @@ public class ProjectConfig {
         public void setAutoScrollTo(String autoScrollTo) { this.autoScrollTo = autoScrollTo; }
         public Boolean getEnableConfidenceBar() { return enableConfidenceBar; }
         public void setEnableConfidenceBar(Boolean enableConfidenceBar) { this.enableConfidenceBar = enableConfidenceBar; }
+    public Map<String, String> getThemeColors() { return themeColors; }
+    public void setThemeColors(Map<String, String> themeColors) { this.themeColors = themeColors; }
+    public List<Map<String, Object>> getConfidenceLevels() { return confidenceLevels; }
+    public void setConfidenceLevels(List<Map<String, Object>> confidenceLevels) { this.confidenceLevels = confidenceLevels; }
     }
 
     /** Output / path templating */
@@ -573,6 +585,7 @@ public class ProjectConfig {
         @JsonProperty("currentFile") private String currentFile;
         @JsonProperty("changesFile") private String changesFile;
         @JsonProperty("reportFile") private String reportFile;
+    @JsonProperty("reportSimpleFile") private String reportSimpleFile; // new explicit simple report name
 
         public String getDirectoryTemplate() { return directoryTemplate; }
         public void setDirectoryTemplate(String directoryTemplate) { this.directoryTemplate = directoryTemplate; }
@@ -584,6 +597,8 @@ public class ProjectConfig {
         public void setChangesFile(String changesFile) { this.changesFile = changesFile; }
         public String getReportFile() { return reportFile; }
         public void setReportFile(String reportFile) { this.reportFile = reportFile; }
+    public String getReportSimpleFile() { return reportSimpleFile; }
+    public void setReportSimpleFile(String reportSimpleFile) { this.reportSimpleFile = reportSimpleFile; }
     }
 
     /** Feature flags */

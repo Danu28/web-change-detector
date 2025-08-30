@@ -55,6 +55,7 @@ public class Configuration {
     private String currentSnapshot;
     private String changesFile;
     private String reportFile;
+    private String reportSimpleFile;
 
     /**
      * Create a new Configuration with default values
@@ -309,6 +310,8 @@ public class Configuration {
     public void setReportFile(String reportFile) {
         this.reportFile = reportFile;
     }
+    public String getReportSimpleFile() { return reportSimpleFile; }
+    public void setReportSimpleFile(String reportSimpleFile) { this.reportSimpleFile = reportSimpleFile; }
     
     /**
      * Get the loaded project configuration.
@@ -330,11 +333,13 @@ public class Configuration {
         String currentName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getCurrentFile() : null, "current.json");
         String changesName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getChangesFile() : null, "changes.json");
         String reportName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getReportFile() : null, "report.html");
+    String reportSimpleName = fileNameOrDefault(() -> projectConfig.getOutputSettings() != null ? projectConfig.getOutputSettings().getReportSimpleFile() : null, "report-simple.html");
 
         this.baselineSnapshot = new File(outputDir, baselineName).getAbsolutePath();
         this.currentSnapshot = new File(outputDir, currentName).getAbsolutePath();
         this.changesFile = new File(outputDir, changesName).getAbsolutePath();
         this.reportFile = new File(outputDir, reportName).getAbsolutePath();
+    this.reportSimpleFile = new File(outputDir, reportSimpleName).getAbsolutePath();
     }
 
     private interface FileNameSupplier { String get(); }

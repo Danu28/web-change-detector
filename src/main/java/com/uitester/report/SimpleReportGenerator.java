@@ -35,6 +35,15 @@ public class SimpleReportGenerator {
         
         StringBuilder html = new StringBuilder();
         
+        // Resolve theming
+        Map<String,String> theme = config != null && config.getReportingSettings() != null ?
+            config.getReportingSettings().getThemeColors() : null;
+        String accent1 = theme != null && theme.get("accentPrimary") != null ? theme.get("accentPrimary") : "#667eea";
+        String accent2 = theme != null && theme.get("accentSecondary") != null ? theme.get("accentSecondary") : "#764ba2";
+        String bgSoft = theme != null && theme.get("backgroundSoft") != null ? theme.get("backgroundSoft") : "#f8fafc";
+        String panelBg = theme != null && theme.get("panelBackground") != null ? theme.get("panelBackground") : "#ffffff";
+        String borderCol = theme != null && theme.get("borderColor") != null ? theme.get("borderColor") : "#e2e8f0";
+
         // HTML header with enhanced styling
         html.append("<!DOCTYPE html>\n")
             .append("<html>\n<head>\n")
@@ -44,19 +53,19 @@ public class SimpleReportGenerator {
             .append("<style>\n")
             // Base styles
             .append("* { box-sizing: border-box; }\n")
-            .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f8fafc; color: #1a202c; line-height: 1.6; }\n")
+            .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: ").append(bgSoft).append("; color: #1a202c; line-height: 1.6; }\n")
             .append("h1 { color: #2d3748; margin-bottom: 8px; font-size: 2.2em; }\n")
             .append("h2 { color: #4a5568; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }\n")
             .append("h3 { color: #2d3748; margin-top: 0; margin-bottom: 10px; }\n")
             
             // Header and navigation
-            .append(".header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; text-align: center; }\n")
+            .append(".header { background: linear-gradient(135deg, ").append(accent1).append(" 0%, ").append(accent2).append(" 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; text-align: center; }\n")
             .append(".header h1 { color: white; margin: 0; font-size: 2.5em; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }\n")
             .append(".header .subtitle { opacity: 0.9; font-size: 1.1em; margin-top: 8px; }\n")
             
             // Summary cards
             .append(".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }\n")
-            .append(".summary-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #667eea; }\n")
+            .append(".summary-card { background: ").append(panelBg).append("; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid ").append(accent1).append("; }\n")
             .append(".summary-card h3 { margin-top: 0; color: #4a5568; }\n")
             .append(".summary-number { font-size: 2.5em; font-weight: bold; color: #667eea; margin: 10px 0; }\n")
             .append(".summary-label { color: #718096; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; }\n")
@@ -70,7 +79,7 @@ public class SimpleReportGenerator {
             .append(".change-badge.text { background: #d4edda; color: #38a169; }\n")
             
             // Individual changes
-            .append(".change { background: white; border: 1px solid #e2e8f0; margin: 15px 0; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }\n")
+            .append(".change { background: ").append(panelBg).append("; border: 1px solid ").append(borderCol).append("; margin: 15px 0; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }\n")
             .append(".change:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }\n")
             .append(".change.critical { border-left: 5px solid #f56565; background: linear-gradient(90deg, #fed7d7 0%, white 5%); }\n")
             .append(".change.cosmetic { border-left: 5px solid #4299e1; background: linear-gradient(90deg, #bee3f8 0%, white 5%); }\n")
@@ -387,17 +396,23 @@ public class SimpleReportGenerator {
      * Get confidence level label
      */
     private String getConfidenceLabel(double confidence) {
-        if (confidence >= 0.9) {
-            return "Very High";
-        } else if (confidence >= 0.75) {
-            return "High";
-        } else if (confidence >= 0.5) {
-            return "Medium";
-        } else if (confidence >= 0.25) {
-            return "Low";
-        } else {
-            return "Very Low";
+        if (config != null && config.getReportingSettings() != null && config.getReportingSettings().getConfidenceLevels() != null) {
+            // Expect list ordered by descending min
+            List<Map<String,Object>> levels = config.getReportingSettings().getConfidenceLevels();
+            for (Map<String,Object> lvl : levels) {
+                Object minObj = lvl.get("min"); Object labelObj = lvl.get("label");
+                double min = minObj instanceof Number ? ((Number)minObj).doubleValue() : 0.0;
+                if (confidence >= min) {
+                    return labelObj != null ? labelObj.toString() : "Level";
+                }
+            }
         }
+        // Fallback static mapping
+        if (confidence >= 0.9) return "Very High";
+        if (confidence >= 0.75) return "High";
+        if (confidence >= 0.5) return "Medium";
+        if (confidence >= 0.25) return "Low";
+        return "Very Low";
     }
     
     /**

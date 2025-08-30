@@ -2,6 +2,7 @@ package com.uitester.diff;
 
 import com.uitester.core.ElementData;
 import com.uitester.core.ProjectConfig;
+import com.uitester.core.Defaults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,12 +19,12 @@ public class ElementMatcher {
     
     private final ProjectConfig config;
     // Config-driven weights & thresholds (fallback to legacy defaults)
-    private double tagWeight = 0.3;
-    private double textWeight = 0.4;
-    private double structuralWeight = 0.2;
-    private double contentWeight = 0.1;
-    private double fuzzyMinConfidence = 0.6;
-    private double semanticPriceConfidence = 0.75;
+    private double tagWeight = Defaults.MATCH_TAG_WEIGHT;
+    private double textWeight = Defaults.MATCH_TEXT_WEIGHT;
+    private double structuralWeight = Defaults.MATCH_STRUCTURAL_WEIGHT;
+    private double contentWeight = Defaults.MATCH_CONTENT_WEIGHT;
+    private double fuzzyMinConfidence = Defaults.MATCH_FUZZY_MIN_CONF;
+    private double semanticPriceConfidence = Defaults.MATCH_SEMANTIC_PRICE_CONF;
     private boolean enableSemanticPrice = true;
     private boolean enableSemanticMatchingFlag = true; // from flags if present
     
@@ -49,7 +50,11 @@ public class ElementMatcher {
         }
         double sum = tagWeight + textWeight + structuralWeight + contentWeight;
         if (sum <= 0) {
-            tagWeight = 0.3; textWeight = 0.4; structuralWeight = 0.2; contentWeight = 0.1; sum = 1.0;
+            tagWeight = Defaults.MATCH_TAG_WEIGHT;
+            textWeight = Defaults.MATCH_TEXT_WEIGHT;
+            structuralWeight = Defaults.MATCH_STRUCTURAL_WEIGHT;
+            contentWeight = Defaults.MATCH_CONTENT_WEIGHT;
+            sum = tagWeight + textWeight + structuralWeight + contentWeight;
         }
         // Normalize to sum 1 to keep confidence scale stable
         tagWeight /= sum; textWeight /= sum; structuralWeight /= sum; contentWeight /= sum;
@@ -259,7 +264,7 @@ public class ElementMatcher {
         
         // Structural fingerprint similarity
         if (baseline.getStructuralFingerprint() != null && candidate.getStructuralFingerprint() != null) {
-            double structScore = baseline.getStructuralFingerprint().equals(candidate.getStructuralFingerprint()) ? 1.0 : 0.5;
+            double structScore = baseline.getStructuralFingerprint().equals(candidate.getStructuralFingerprint()) ? 1.0 : Defaults.STRUCT_FINGERPRINT_PARTIAL;
             weightedScore += structScore * structuralWeight;
             totalWeight += structuralWeight;
         }

@@ -16,6 +16,7 @@ import com.uitester.core.Configuration;
 import com.uitester.core.ElementData;
 import com.uitester.core.StructuralAnalyzer;
 import com.uitester.core.ProjectConfig;
+import com.uitester.core.Defaults;
 
 /**
  * Detects changes between two sets of elements.
@@ -126,7 +127,7 @@ public class ChangeDetector {
             );
             
             // Get threshold from configuration
-            double threshold = 0.95; // Default threshold
+            double threshold = Defaults.TEXT_SIMILARITY_DEFAULT; // centralized default
             if (configuration != null && configuration.getProjectConfig() != null &&
                 configuration.getProjectConfig().getComparisonSettings() != null &&
                 configuration.getProjectConfig().getComparisonSettings().getTextSimilarityThreshold() != null) {
@@ -135,14 +136,16 @@ public class ChangeDetector {
             
             // Only report change if similarity is below threshold
             if (similarity < threshold) {
-                elementChanges.add(new ElementChange(
+                ElementChange ec = new ElementChange(
                     selector,
                     "text",
                     oldElement.getText(),
                     newElement.getText(),
                     "text",
                     1 - similarity
-                ));
+                );
+                ec.setClassification(classifyChange(ec));
+                elementChanges.add(ec);
             }
         }
         
@@ -199,14 +202,16 @@ public class ChangeDetector {
                     continue; // Skip this attribute change
                 }
                 
-                elementChanges.add(new ElementChange(
+                ElementChange ec = new ElementChange(
                     selector,
                     "attr_" + attr,
                     oldVal,
                     newVal,
                     "attribute",
-                    oldVal != null && newVal != null ? 0.5 : 1.0
-                ));
+                    oldVal != null && newVal != null ? Defaults.ATTRIBUTE_CHANGE_BASE : 1.0
+                );
+                ec.setClassification(classifyChange(ec));
+                elementChanges.add(ec);
             }
         }
         
@@ -241,11 +246,11 @@ public class ChangeDetector {
                 
                 // Calculate change magnitude based on category
                 if (category.equals("color")) {
-                    magnitude = 0.7; // Color changes are subjectively important
+                    magnitude = Defaults.COLOR_STYLE_IMPORTANCE; // centralized color importance
                 } else if (category.equals("dimension")) {
                     magnitude = calculateNumericChange(oldVal == null ? "0" : oldVal, newVal == null ? "0" : newVal);
                 } else {
-                    magnitude = oldVal != null && newVal != null ? 0.5 : 1.0;
+                    magnitude = oldVal != null && newVal != null ? Defaults.ATTRIBUTE_CHANGE_BASE : 1.0;
                 }
                 
                 // Skip insignificant changes based on comparison thresholds
@@ -259,7 +264,9 @@ public class ChangeDetector {
                         continue;
                     }
                 }
-                elementChanges.add(new ElementChange(selector, style, oldVal, newVal, "style_" + category, magnitude));
+                ElementChange ec = new ElementChange(selector, style, oldVal, newVal, "style_" + category, magnitude);
+                ec.setClassification(classifyChange(ec));
+                elementChanges.add(ec);
             }
         }
         
@@ -294,7 +301,7 @@ public class ChangeDetector {
                         continue;
                     }
                     
-                    double magnitude = 0.5; // Default magnitude for position changes
+                    double magnitude = Defaults.POSITION_CHANGE_BASE; // Default magnitude for position changes
                     
                     // Calculate magnitude for numeric position changes
                     if (oldVal instanceof Number && newVal instanceof Number) {
@@ -308,14 +315,16 @@ public class ChangeDetector {
                         }
                     }
                     
-                    elementChanges.add(new ElementChange(
+                    ElementChange ec = new ElementChange(
                         selector,
                         "position_" + prop,
                         oldVal != null ? oldVal.toString() : "null",
                         newVal != null ? newVal.toString() : "null",
                         "layout",
                         magnitude
-                    ));
+                    );
+                    ec.setClassification(classifyChange(ec));
+                    elementChanges.add(ec);
                 }
             }
         }
@@ -396,7 +405,10 @@ public class ChangeDetector {
 
         double textCritical = getMagnitudeThreshold(cls, "textCritical", 0.5);
         double colorCosmetic = getMagnitudeThreshold(cls, "colorCosmetic", 0.3);
-        double layoutCosmetic = getMagnitudeThreshold(cls, "layoutCosmetic", 0.1);
+    // layoutCosmetic retained in thresholds for backward compatibility but not directly used after positionBase externalization
+    double styleCritical = getMagnitudeThreshold(cls, "styleCritical", Defaults.CLASS_STYLE_CRITICAL);
+    double styleCosmetic = getMagnitudeThreshold(cls, "styleCosmetic", Defaults.CLASS_STYLE_COSMETIC);
+    double positionBase = getMagnitudeThreshold(cls, "positionBase", Defaults.CLASS_POSITION_BASE_MAG);
 
         if (cls != null && cls.getInteractiveKeywords() != null && !cls.getInteractiveKeywords().isEmpty()) {
             for (String kw : cls.getInteractiveKeywords()) {
@@ -408,21 +420,29 @@ public class ChangeDetector {
         }
 
         if ("structural".equals(changeType) || property.startsWith("element_")) return "critical";
-        if (property.contains("aria") || property.contains("alt") || property.contains("role")) return "critical";
+        // Accessibility-related keywords (configurable)
+        if (cls != null && cls.getAccessibilityKeywords() != null && !cls.getAccessibilityKeywords().isEmpty()) {
+            for (String kw : cls.getAccessibilityKeywords()) {
+                if (kw != null && !kw.isEmpty() && property.contains(kw)) return "critical";
+            }
+        } else if (property.contains("aria") || property.contains("alt") || property.contains("role")) {
+            return "critical";
+        }
 
         if ("text".equals(property) || "text".equals(changeType)) {
             if (magnitude >= textCritical) return "critical";
             return magnitude >= (textCritical / 2.0) ? "cosmetic" : "noise";
         }
         if ("layout".equals(changeType) || property.startsWith("position_")) {
-            return magnitude >= layoutCosmetic ? "cosmetic" : "noise";
+            // Use positionBase for classification of position changes
+            return magnitude >= positionBase ? "cosmetic" : "noise";
         }
         if (property.equals("color") || property.equals("background-color") || property.contains("font-family")) {
             return magnitude >= colorCosmetic ? "cosmetic" : "noise";
         }
         if (changeType.startsWith("style_")) {
-            if (magnitude >= 0.6) return "critical";
-            if (magnitude >= 0.2) return "cosmetic";
+            if (magnitude >= styleCritical) return "critical";
+            if (magnitude >= styleCosmetic) return "cosmetic";
             return "noise";
         }
 
@@ -511,7 +531,7 @@ public class ChangeDetector {
                 if (matchConfidence != null && matchConfidence < 1.0) {
                     // Flag changes where element matching had lower confidence
                     change.setMatchConfidence(matchConfidence);
-                    if (matchConfidence < 0.8) {
+                    if (matchConfidence < Defaults.LOW_MATCH_CONFIDENCE) {
                         change.setClassification("potential"); // Uncertain match
                     }
                 }

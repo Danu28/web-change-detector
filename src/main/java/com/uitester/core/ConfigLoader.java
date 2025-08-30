@@ -130,7 +130,7 @@ public class ConfigLoader {
         
         // Default comparison settings
         ProjectConfig.ComparisonSettings comparisonSettings = new ProjectConfig.ComparisonSettings();
-        comparisonSettings.setTextSimilarityThreshold(0.95);
+    comparisonSettings.setTextSimilarityThreshold(Defaults.TEXT_SIMILARITY_DEFAULT);
         comparisonSettings.setNumericChangeThreshold(0.05);
         comparisonSettings.setColorChangeThreshold(0.1);
         comparisonSettings.setIgnoreStyleChanges(Arrays.asList("font-family"));
@@ -194,12 +194,12 @@ public class ConfigLoader {
 
         if (config.getMatchingSettings() == null) {
             ProjectConfig.MatchingSettings ms = new ProjectConfig.MatchingSettings();
-            ms.setTagWeight(0.3);
-            ms.setTextWeight(0.4);
-            ms.setStructuralWeight(0.2);
-            ms.setContentWeight(0.1);
-            ms.setFuzzyMinConfidence(0.6);
-            ms.setSemanticPriceConfidence(0.75);
+            ms.setTagWeight(Defaults.MATCH_TAG_WEIGHT);
+            ms.setTextWeight(Defaults.MATCH_TEXT_WEIGHT);
+            ms.setStructuralWeight(Defaults.MATCH_STRUCTURAL_WEIGHT);
+            ms.setContentWeight(Defaults.MATCH_CONTENT_WEIGHT);
+            ms.setFuzzyMinConfidence(Defaults.MATCH_FUZZY_MIN_CONF);
+            ms.setSemanticPriceConfidence(Defaults.MATCH_SEMANTIC_PRICE_CONF);
             ms.setEnableSemanticPrice(Boolean.TRUE);
             config.setMatchingSettings(ms);
         }
@@ -207,13 +207,30 @@ public class ConfigLoader {
         if (config.getClassificationSettings() == null) {
             ProjectConfig.ClassificationSettings cls = new ProjectConfig.ClassificationSettings();
             cls.setInteractiveKeywords(Arrays.asList("button", "input", "form", "a", "select"));
+            cls.setAccessibilityKeywords(Arrays.asList("aria", "alt", "role"));
             Map<String, Double> thresholds = new HashMap<>();
-            thresholds.put("textCritical", 0.5); // magnitude threshold for critical text change
-            thresholds.put("colorCosmetic", 0.3);
-            thresholds.put("layoutCosmetic", 0.1);
+            thresholds.put("textCritical", Defaults.CLASS_TEXT_CRITICAL); // magnitude threshold for critical text change
+            thresholds.put("colorCosmetic", Defaults.CLASS_COLOR_COSMETIC);
+            thresholds.put("layoutCosmetic", Defaults.CLASS_LAYOUT_COSMETIC);
+            thresholds.put("styleCritical", Defaults.CLASS_STYLE_CRITICAL); // externalized critical style magnitude
+            thresholds.put("styleCosmetic", Defaults.CLASS_STYLE_COSMETIC); // cosmetic style lower bound
+            thresholds.put("positionBase", Defaults.CLASS_POSITION_BASE_MAG); // base magnitude for position changes
             cls.setMagnitudeThresholds(thresholds);
             cls.setRules(new ArrayList<>()); // placeholder for future rule engine
             config.setClassificationSettings(cls);
+        }
+        // For existing configs missing new fields
+        if (config.getClassificationSettings() != null) {
+            ProjectConfig.ClassificationSettings cls = config.getClassificationSettings();
+            if (cls.getAccessibilityKeywords() == null) {
+                cls.setAccessibilityKeywords(Arrays.asList("aria", "alt", "role"));
+            }
+            if (cls.getMagnitudeThresholds() != null) {
+                Map<String, Double> mt = cls.getMagnitudeThresholds();
+                if (!mt.containsKey("styleCritical")) mt.put("styleCritical", Defaults.CLASS_STYLE_CRITICAL);
+                if (!mt.containsKey("styleCosmetic")) mt.put("styleCosmetic", Defaults.CLASS_STYLE_COSMETIC);
+                if (!mt.containsKey("positionBase")) mt.put("positionBase", Defaults.CLASS_POSITION_BASE_MAG);
+            }
         }
 
         if (config.getStructuralAnalysisSettings() == null) {
@@ -223,7 +240,24 @@ public class ConfigLoader {
             sas.setTableMinRows(2);
             sas.setMaxDepthForParentSearch(10);
             sas.setSelectorSimilarityCapDepth(10);
+            Map<String, Double> pc = new HashMap<>();
+            pc.put("navigation", 0.8);
+            pc.put("list", 0.9);
+            pc.put("form", 0.85);
+            pc.put("table", 0.9);
+            pc.put("css-grid", 0.7);
+            sas.setPatternConfidence(pc);
             config.setStructuralAnalysisSettings(sas);
+        }
+        // Populate missing pattern confidences for existing configs
+        if (config.getStructuralAnalysisSettings() != null && config.getStructuralAnalysisSettings().getPatternConfidence() == null) {
+            Map<String, Double> pc = new HashMap<>();
+            pc.put("navigation", 0.8);
+            pc.put("list", 0.9);
+            pc.put("form", 0.85);
+            pc.put("table", 0.9);
+            pc.put("css-grid", 0.7);
+            config.getStructuralAnalysisSettings().setPatternConfidence(pc);
         }
 
         if (config.getReportingSettings() == null) {
@@ -237,7 +271,43 @@ public class ConfigLoader {
             rs.setBadgeColors(colors);
             rs.setAutoScrollTo("critical");
             rs.setEnableConfidenceBar(Boolean.TRUE);
+            Map<String, String> theme = new HashMap<>();
+            theme.put("accentPrimary", "#667eea");
+            theme.put("accentSecondary", "#764ba2");
+            theme.put("backgroundSoft", "#f8fafc");
+            theme.put("panelBackground", "#ffffff");
+            theme.put("borderColor", "#e2e8f0");
+            rs.setThemeColors(theme);
+            List<Map<String, Object>> confLevels = new ArrayList<>();
+            confLevels.add(mapOf("min", 0.9, "label", "Very High"));
+            confLevels.add(mapOf("min", 0.75, "label", "High"));
+            confLevels.add(mapOf("min", 0.5, "label", "Medium"));
+            confLevels.add(mapOf("min", 0.25, "label", "Low"));
+            confLevels.add(mapOf("min", 0.0, "label", "Very Low"));
+            rs.setConfidenceLevels(confLevels);
             config.setReportingSettings(rs);
+        }
+        // Populate missing reporting enhancements
+        if (config.getReportingSettings() != null) {
+            ProjectConfig.ReportingSettings rs = config.getReportingSettings();
+            if (rs.getThemeColors() == null) {
+                Map<String, String> theme = new HashMap<>();
+                theme.put("accentPrimary", "#667eea");
+                theme.put("accentSecondary", "#764ba2");
+                theme.put("backgroundSoft", "#f8fafc");
+                theme.put("panelBackground", "#ffffff");
+                theme.put("borderColor", "#e2e8f0");
+                rs.setThemeColors(theme);
+            }
+            if (rs.getConfidenceLevels() == null) {
+                List<Map<String, Object>> confLevels = new ArrayList<>();
+                confLevels.add(mapOf("min", 0.9, "label", "Very High"));
+                confLevels.add(mapOf("min", 0.75, "label", "High"));
+                confLevels.add(mapOf("min", 0.5, "label", "Medium"));
+                confLevels.add(mapOf("min", 0.25, "label", "Low"));
+                confLevels.add(mapOf("min", 0.0, "label", "Very Low"));
+                rs.setConfidenceLevels(confLevels);
+            }
         }
 
         if (config.getOutputSettings() == null) {
@@ -247,7 +317,11 @@ public class ConfigLoader {
             os.setCurrentFile("current.json");
             os.setChangesFile("changes.json");
             os.setReportFile("report.html");
+            os.setReportSimpleFile("report-simple.html");
             config.setOutputSettings(os);
+        }
+        if (config.getOutputSettings() != null && config.getOutputSettings().getReportSimpleFile() == null) {
+            config.getOutputSettings().setReportSimpleFile("report-simple.html");
         }
 
         if (config.getFlags() == null) {
@@ -257,5 +331,11 @@ public class ConfigLoader {
             flags.setEnableAdvancedClassification(Boolean.FALSE);
             config.setFlags(flags);
         }
+    }
+
+    // Helper to build simple map entries for confidenceLevels
+    private static Map<String, Object> mapOf(String k1, Object v1, String k2, Object v2) {
+        Map<String, Object> m = new HashMap<>();
+        m.put(k1, v1); m.put(k2, v2); return m;
     }
 }

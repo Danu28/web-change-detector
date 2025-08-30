@@ -32,8 +32,7 @@ public class ElementChange {
         this.changeType = changeType;
         this.magnitude = magnitude;
         
-        // Automatically classify changes based on type and magnitude
-        this.classification = classifyChange(changeType, property, magnitude);
+    // Classification now assigned externally (ChangeDetector)
     }
 
     /**
@@ -44,27 +43,7 @@ public class ElementChange {
      * @param magnitude The magnitude of the change (0.0 to 1.0)
      * @return Classification as "critical", "cosmetic", or "noise"
      */
-    private String classifyChange(String changeType, String property, double magnitude) {
-        // Critical changes
-        if (changeType.equals("structural") || 
-            (changeType.equals("text") && magnitude > 0.5) || 
-            (property.equals("display") || property.equals("visibility"))) {
-            return "critical";
-        }
-        
-        // Cosmetic changes
-        if (changeType.startsWith("style_") && magnitude > 0.2) {
-            return "cosmetic";
-        }
-        
-        if (changeType.equals("attribute") && 
-            (property.contains("aria") || property.contains("alt") || property.contains("role"))) {
-            return "critical"; // Accessibility changes are critical
-        }
-        
-        // Default to noise for minor changes
-        return "noise";
-    }
+    // Legacy in-class classification removed; classification now applied centrally in ChangeDetector
 
     // Getters and setters
     public String getElement() {
