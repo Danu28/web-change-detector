@@ -309,24 +309,31 @@ public class DOMCSSCrawler {
                 // Use first class as it's often most specific
                 return tagName + "." + elementClass.split(" ")[0];
             } else {
-                // Build a full unique CSS path (stop early if an ancestor has id)
-                String script = "function cssPath(el){" +
-                        "if(!el || el.nodeType!==1) return '';" +
-                        "if(el.id) return '#'+el.id;" +
-                        "var path=[];" +
-                        "while(el && el.nodeType===1){" +
-                        "  if(el.id){ path.unshift('#'+el.id); break;}" +
-                        "  var name=el.nodeName.toLowerCase();" +
-                        "  var cls=(el.className||'').trim().split(/\\s+/)[0];" +
-                        "  var sib=el, nth=1;" +
-                        "  while((sib=sib.previousElementSibling)!=null){ if(sib.nodeName===el.nodeName) nth++; }" +
-                        "  var seg=name + (cls?'.'+cls:'') + ':nth-of-type(' + nth + ')';" +
-                        "  path.unshift(seg);" +
-                        "  el=el.parentElement;" +
-                        "  if(el && el.tagName==='HTML') break;" +
-                        "}" +
-                        "return path.join(' > ');" +
-                        "} return cssPath(arguments[0]);";
+        // Build a minimal unique CSS selector (shorter than full path)
+        String script = "function uniqueSelector(el){" +
+            " if(!el||el.nodeType!==1) return '';" +
+            " var doc=el.ownerDocument;" +
+            " if(el.id){return '#'+el.id;}" +
+            " var segments=[];" +
+            " var current=el; var depth=0;" +
+            " while(current && current.nodeType===1 && depth<8){" +
+            "   segments.unshift(segment(current));" +
+            "   var sel=segments.join(' > ');" +
+            "   try{ if(doc.querySelectorAll(sel).length===1) return sel; }catch(e){}" +
+            "   current=current.parentElement; depth++;" +
+            "   if(current && current.id){ segments.unshift('#'+current.id); sel=segments.join(' > '); try{ if(doc.querySelectorAll(sel).length===1) return sel;}catch(e){} break;}" +
+            " }" +
+            " return segments.join(' > ');" +
+            " function segment(node){" +
+            "   if(node.id) return '#'+node.id;" +
+            "   var tag=node.nodeName.toLowerCase();" +
+            "   var cls=(node.className||'').trim().split(/\\s+/)[0]||'';" +
+            "   var base=tag+(cls?'.'+cls:'');" +
+            "   try{ if(doc.querySelectorAll(base).length===1) return base; }catch(e){}" +
+            "   var nth=1, sib=node; while((sib=sib.previousElementSibling)!=null){ if(sib.nodeName===node.nodeName) nth++; }" +
+            "   return base+':nth-of-type('+nth+')';" +
+            " }" +
+            "}; return uniqueSelector(arguments[0]);";
                 try {
                     String fullPath = (String) ((JavascriptExecutor) driver).executeScript(script, element);
                     if (fullPath != null && !fullPath.isEmpty()) {
