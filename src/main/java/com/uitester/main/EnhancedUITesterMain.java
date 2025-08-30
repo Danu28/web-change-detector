@@ -24,7 +24,6 @@ import com.uitester.core.StructuralAnalyzer;
 import com.uitester.crawler.DOMCSSCrawler;
 import com.uitester.diff.ElementChange;
 import com.uitester.diff.ElementMatcher;
-import com.uitester.report.EnhancedReportGenerator;
 import com.uitester.report.SimpleReportGenerator;
 
 /**
@@ -34,8 +33,7 @@ import com.uitester.report.SimpleReportGenerator;
  * - Enhanced element capture with fingerprinting
  * - Advanced element matching (Phase 2)
  * - Structural analysis (Phase 3)
- * - Enhanced reporting with meaningful insights
- * - Both simple and comprehensive report formats
+ * - Simple, clean human-readable reporting
  */
 public class EnhancedUITesterMain {
     private static final Logger logger = LoggerFactory.getLogger(EnhancedUITesterMain.class);
@@ -121,10 +119,10 @@ public class EnhancedUITesterMain {
         // Save enhanced changes
         saveChangesToFile(structurallyEnhancedChanges, config.getChangesFile());
         
-        // Phase 4: Enhanced Reporting
-        logger.info("📝 Phase 4: Enhanced Reporting Generation");
-        generateEnhancedReports(structurallyEnhancedChanges, baselineElements, currentElements, 
-                               baselineStructure, currentStructure);
+        // Phase 4: Simple Report Generation
+        logger.info("📝 Phase 4: Simple Report Generation");
+        generateSimpleReport(structurallyEnhancedChanges, baselineElements, currentElements, 
+                           baselineStructure, currentStructure);
         
         // Performance Summary
         printPerformanceSummary(baselineElements, currentElements, structurallyEnhancedChanges);
@@ -196,17 +194,35 @@ public class EnhancedUITesterMain {
                 changes.add(change);
             }
             
-            // Analyze text changes
-            if (!java.util.Objects.equals(baseline.getText(), current.getText())) {
+            // Analyze text changes with improved logic
+            String baselineText = baseline.getText() != null ? baseline.getText() : "";
+            String currentText = current.getText() != null ? current.getText() : "";
+            
+            logger.info("🔍 Checking text for {}: baseline='{}', current='{}'", 
+                       baseline.getSelector(), baselineText, currentText);
+            
+            if (!baselineText.equals(currentText)) {
+                // Log the text comparison for debugging
+                logger.info("📝 Text change detected for {}: '{}' -> '{}'", 
+                           baseline.getSelector(), baselineText, currentText);
+                
                 ElementChange change = new ElementChange();
                 change.setElement(baseline.getSelector());
                 change.setProperty("text");
                 change.setChangeType("TEXT_MODIFICATION");
-                change.setOldValue(baseline.getText());
-                change.setNewValue(current.getText());
+                change.setOldValue(baselineText);
+                change.setNewValue(currentText);
                 change.setMatchConfidence(confidence);
-                change.setMagnitude(0.8); // Text changes are usually significant
+                
+                // Calculate magnitude based on text difference
+                double magnitude = calculateTextChangeMagnitude(baselineText, currentText);
+                change.setMagnitude(magnitude);
+                
                 changes.add(change);
+                logger.info("✅ Added TEXT_MODIFICATION: {} ('{}' -> '{}')", 
+                          baseline.getSelector(), baselineText, currentText);
+            } else {
+                logger.info("✅ No text change for {}", baseline.getSelector());
             }
             
             // Analyze attribute changes
@@ -252,6 +268,50 @@ public class EnhancedUITesterMain {
     }
     
     /**
+     * Calculate the magnitude of a text change
+     */
+    private double calculateTextChangeMagnitude(String oldText, String newText) {
+        if (oldText == null && newText == null) return 0.0;
+        if (oldText == null || newText == null) return 1.0; // Complete change
+        if (oldText.equals(newText)) return 0.0;
+        
+        // Use Levenshtein distance to calculate similarity
+        int maxLength = Math.max(oldText.length(), newText.length());
+        if (maxLength == 0) return 0.0;
+        
+        // Simple character-based difference calculation
+        double similarity = 1.0 - (double) levenshteinDistance(oldText, newText) / maxLength;
+        return Math.max(0.0, Math.min(1.0, 1.0 - similarity));
+    }
+    
+    /**
+     * Calculate Levenshtein distance between two strings
+     */
+    private int levenshteinDistance(String s1, String s2) {
+        if (s1 == null && s2 == null) return 0;
+        if (s1 == null) return s2.length();
+        if (s2 == null) return s1.length();
+        
+        int[][] dp = new int[s1.length() + 1][s2.length() + 1];
+        
+        for (int i = 0; i <= s1.length(); i++) {
+            dp[i][0] = i;
+        }
+        for (int j = 0; j <= s2.length(); j++) {
+            dp[0][j] = j;
+        }
+        
+        for (int i = 1; i <= s1.length(); i++) {
+            for (int j = 1; j <= s2.length(); j++) {
+                int cost = (s1.charAt(i - 1) == s2.charAt(j - 1)) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+            }
+        }
+        
+        return dp[s1.length()][s2.length()];
+    }
+    
+    /**
      * Calculate magnitude of style changes
      */
     private double calculateStyleChangeMagnitude(java.util.Map<String, String> oldStyles, 
@@ -277,13 +337,13 @@ public class EnhancedUITesterMain {
     }
     
     /**
-     * Generate both simple and enhanced reports
+     * Generate simple human-readable reports only
      */
-    private void generateEnhancedReports(List<ElementChange> changes, 
-                                       List<ElementData> baselineElements,
-                                       List<ElementData> currentElements,
-                                       StructuralAnalyzer.StructuralAnalysis baselineStructure,
-                                       StructuralAnalyzer.StructuralAnalysis currentStructure) throws IOException {
+    private void generateSimpleReport(List<ElementChange> changes, 
+                                    List<ElementData> baselineElements,
+                                    List<ElementData> currentElements,
+                                    StructuralAnalyzer.StructuralAnalysis baselineStructure,
+                                    StructuralAnalyzer.StructuralAnalysis currentStructure) throws IOException {
         
         // Generate Simple Human-Readable Report
         logger.info("📄 Generating Simple Human-Readable Report");
@@ -291,29 +351,8 @@ public class EnhancedUITesterMain {
         SimpleReportGenerator simpleGenerator = new SimpleReportGenerator();
         simpleGenerator.generateReport(changes, baselineElements, currentElements, simpleReportPath);
         
-        // Generate Enhanced Interactive Report
-        logger.info("🎨 Generating Enhanced Interactive Report");
-        String enhancedReportPath = config.getReportFile().replace(".html", "-enhanced.html");
-        EnhancedReportGenerator enhancedGenerator = new EnhancedReportGenerator();
-        
-        // Create performance metrics
-        EnhancedReportGenerator.PerformanceMetrics performanceMetrics = new EnhancedReportGenerator.PerformanceMetrics();
-        performanceMetrics.setElementsAnalyzed(baselineElements.size() + currentElements.size());
-        performanceMetrics.setProcessingTimeMs(System.currentTimeMillis() % 10000); // Simple timing
-        performanceMetrics.setFingerprintsGenerated(baselineElements.size() + currentElements.size());
-        
-        try {
-            enhancedGenerator.generateEnhancedReport(enhancedReportPath, changes, baselineElements, currentElements,
-                                                   baselineStructure, currentStructure, performanceMetrics);
-        } catch (Exception e) {
-            logger.warn("⚠️ Enhanced report generation failed, using fallback: {}", e.getMessage());
-            // Fallback to simple report if enhanced fails
-            simpleGenerator.generateReport(changes, baselineElements, currentElements, enhancedReportPath);
-        }
-        
-        logger.info("✅ Reports generated:");
+        logger.info("✅ Report generated:");
         logger.info("   📄 Simple Report: {}", simpleReportPath);
-        logger.info("   🎨 Enhanced Report: {}", enhancedReportPath);
     }
     
     /**
@@ -401,12 +440,6 @@ public class EnhancedUITesterMain {
                 .desc("Run in headless mode").build());
         options.addOption(Option.builder().longOpt("xpath").hasArg()
                 .desc("XPath selector for container element").build());
-        
-        // Report options
-        options.addOption(Option.builder().longOpt("simple-report-only")
-                .desc("Generate only simple human-readable report").build());
-        options.addOption(Option.builder().longOpt("enhanced-report-only")
-                .desc("Generate only enhanced interactive report").build());
         
         // Section info
         options.addOption(Option.builder("s").longOpt("section-name").hasArg()
