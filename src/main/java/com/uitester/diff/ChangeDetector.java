@@ -274,10 +274,8 @@ public class ChangeDetector {
             // Check for position changes - focus only on coordinates (x, y) for layout shifts
             String[] positionProps = {"x", "y"};
             for (String prop : positionProps) {
-                String positionProperty = "position_" + prop;
-                
-                // Only track this position property if it's in stylesToCapture
-                if (!stylesToCapture.contains(positionProperty)) {
+                // Only track position if "position" is in stylesToCapture
+                if (!stylesToCapture.contains("position")) {
                     continue;
                 }
                 
@@ -285,6 +283,7 @@ public class ChangeDetector {
                 Object newVal = newPosition.get(prop);
                 
                 if (!nullSafeEquals(oldVal, newVal)) {
+                    String positionProperty = "position_" + prop;
                     // Skip if this position property is in the ignore list 
                     if (ignoreStyleChanges.contains(positionProperty)) {
                         continue;
