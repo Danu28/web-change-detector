@@ -182,26 +182,31 @@ public class StructuralAnalyzer {
      * Build structural analysis from a list of elements
      */
     public StructuralAnalysis analyzeStructure(List<ElementData> elements) {
-        logger.info("Starting structural analysis of {} elements", elements.size());
-        
-        StructuralAnalysis analysis = new StructuralAnalysis();
-        
-        // Build the tree structure
-        StructuralNode rootNode = buildStructuralTree(elements, analysis);
-        analysis.setRootNode(rootNode);
-        
-        // Calculate metrics
-        StructuralMetrics metrics = calculateMetrics(analysis);
-        analysis.setMetrics(metrics);
-        
-        // Identify patterns
-        List<StructuralPattern> patterns = identifyPatterns(analysis);
-        analysis.getPatterns().addAll(patterns);
-        
-        logger.info("Structural analysis complete: {} nodes, max depth {}, {} patterns identified", 
-                   metrics.getTotalNodes(), metrics.getMaxDepth(), patterns.size());
-        
-        return analysis;
+    if (!structuralAnalysisEnabled()) {
+        logger.info("Structural analysis disabled via flags. Skipping analysis of {} elements", elements.size());
+        return new StructuralAnalysis();
+    }
+
+    logger.info("Starting structural analysis of {} elements", elements.size());
+
+    StructuralAnalysis analysis = new StructuralAnalysis();
+
+    // Build the tree structure
+    StructuralNode rootNode = buildStructuralTree(elements, analysis);
+    analysis.setRootNode(rootNode);
+
+    // Calculate metrics
+    StructuralMetrics metrics = calculateMetrics(analysis);
+    analysis.setMetrics(metrics);
+
+    // Identify patterns
+    List<StructuralPattern> patterns = identifyPatterns(analysis);
+    analysis.getPatterns().addAll(patterns);
+
+    logger.info("Structural analysis complete: {} nodes, max depth {}, {} patterns identified",
+        metrics.getTotalNodes(), metrics.getMaxDepth(), patterns.size());
+
+    return analysis;
     }
     
     /**
@@ -295,7 +300,8 @@ public class StructuralAnalyzer {
         int bestSimilarity = 0;
         
         for (StructuralNode candidate : selectorToNode.values()) {
-            if (candidate != node && candidate.getDepth() < 10) { // Avoid too deep nesting
+            int capDepth = getOrDefault(sa() != null ? sa().getSelectorSimilarityCapDepth() : null, 10);
+            if (candidate != node && candidate.getDepth() < capDepth) { // Avoid too deep nesting (configurable)
                 int similarity = calculateSelectorSimilarity(nodeSelector, candidate.getElement().getSelector());
                 if (similarity > bestSimilarity) {
                     bestSimilarity = similarity;
@@ -449,7 +455,8 @@ public class StructuralAnalyzer {
     private List<StructuralPattern> identifyListPatterns(StructuralAnalysis analysis) {
         List<StructuralPattern> patterns = new ArrayList<>();
         
-        // Look for ul/ol elements with multiple li children
+    int listMin = getOrDefault(sa() != null ? sa().getListMinItems() : null, 3);
+    // Look for ul/ol elements with multiple li children (configurable threshold)
         for (StructuralNode node : analysis.getSelectorToNode().values()) {
             if (node.getElement() == null) continue;
             
@@ -460,7 +467,7 @@ public class StructuralAnalyzer {
                             "li".equalsIgnoreCase(child.getElement().getTagName()))
                     .count();
                 
-                if (liChildren >= 3) { // Consider it a pattern if 3+ items
+        if (liChildren >= listMin) { // configurable threshold
                     patterns.add(new StructuralPattern(
                         "list",
                         Arrays.asList(node),
@@ -524,13 +531,14 @@ public class StructuralAnalyzer {
                           "table".equalsIgnoreCase(node.getElement().getTagName()))
             .collect(Collectors.toList());
         
+        int tableMin = getOrDefault(sa() != null ? sa().getTableMinRows() : null, 2);
         for (StructuralNode tableNode : tableNodes) {
             int rowCount = (int) tableNode.getDescendants().stream()
                 .filter(node -> node.getElement() != null && 
                               "tr".equalsIgnoreCase(node.getElement().getTagName()))
                 .count();
             
-            if (rowCount >= 2) {
+            if (rowCount >= tableMin) {
                 patterns.add(new StructuralPattern(
                     "table",
                     Arrays.asList(tableNode),
@@ -549,8 +557,9 @@ public class StructuralAnalyzer {
             })
             .collect(Collectors.toList());
         
+        int gridMin = getOrDefault(sa() != null ? sa().getGridMinItems() : null, 4);
         for (StructuralNode gridNode : gridNodes) {
-            if (gridNode.getChildren().size() >= 4) { // Grid with multiple items
+            if (gridNode.getChildren().size() >= gridMin) { // configurable grid threshold
                 String display = gridNode.getElement().getStyles().get("display");
                 patterns.add(new StructuralPattern(
                     "css-grid",
@@ -589,8 +598,8 @@ public class StructuralAnalyzer {
                                                            StructuralAnalysis oldStructure, 
                                                            StructuralAnalysis newStructure) {
         // Find the node in both structures
-        StructuralNode oldNode = oldStructure.getSelectorToNode().get(change.getElement());
-        StructuralNode newNode = newStructure.getSelectorToNode().get(change.getElement());
+    StructuralNode oldNode = oldStructure.getSelectorToNode().get(change.getElement());
+    // StructuralNode newNode = newStructure.getSelectorToNode().get(change.getElement()); // not currently used
         
         // Enhance classification based on structural context
         if (oldNode != null) {
@@ -670,4 +679,9 @@ public class StructuralAnalyzer {
         
         return originalClassification;
     }
+
+    // ===================== Config helpers =====================
+    private ProjectConfig.StructuralAnalysisSettings sa() { return config != null ? config.getStructuralAnalysisSettings() : null; }
+    private boolean structuralAnalysisEnabled() { return config == null || config.getFlags() == null || Boolean.TRUE.equals(config.getFlags().getEnableStructuralAnalysis()); }
+    private int getOrDefault(Integer val, int def) { return val != null ? val : def; }
 }
