@@ -305,45 +305,44 @@ public class DOMCSSCrawler {
             
             if (!elementId.isEmpty()) {
                 return "#" + elementId;
-            } else if (!elementClass.isEmpty() && elementClass != null) {
-                // Use first class as it's often most specific
-                return tagName + "." + elementClass.split(" ")[0];
-            } else {
-        // Build a minimal unique CSS selector (shorter than full path)
-        String script = "function uniqueSelector(el){" +
-            " if(!el||el.nodeType!==1) return '';" +
-            " var doc=el.ownerDocument;" +
-            " if(el.id){return '#'+el.id;}" +
-            " var segments=[];" +
-            " var current=el; var depth=0;" +
-            " while(current && current.nodeType===1 && depth<8){" +
-            "   segments.unshift(segment(current));" +
-            "   var sel=segments.join(' > ');" +
-            "   try{ if(doc.querySelectorAll(sel).length===1) return sel; }catch(e){}" +
-            "   current=current.parentElement; depth++;" +
-            "   if(current && current.id){ segments.unshift('#'+current.id); sel=segments.join(' > '); try{ if(doc.querySelectorAll(sel).length===1) return sel;}catch(e){} break;}" +
-            " }" +
-            " return segments.join(' > ');" +
-            " function segment(node){" +
-            "   if(node.id) return '#'+node.id;" +
-            "   var tag=node.nodeName.toLowerCase();" +
-            "   var cls=(node.className||'').trim().split(/\\s+/)[0]||'';" +
-            "   var base=tag+(cls?'.'+cls:'');" +
-            "   try{ if(doc.querySelectorAll(base).length===1) return base; }catch(e){}" +
-            "   var nth=1, sib=node; while((sib=sib.previousElementSibling)!=null){ if(sib.nodeName===node.nodeName) nth++; }" +
-            "   return base+':nth-of-type('+nth+')';" +
-            " }" +
-            "}; return uniqueSelector(arguments[0]);";
+            } else if (elementClass != null && !elementClass.isEmpty()) {
+                // Try short form tag.firstClass only if unique
+                String shortSelector = tagName + "." + elementClass.split(" ")[0];
                 try {
-                    String fullPath = (String) ((JavascriptExecutor) driver).executeScript(script, element);
-                    if (fullPath != null && !fullPath.isEmpty()) {
-                        return fullPath;
+                    String uniquenessScript = "var sel='" + shortSelector.replace("'","\\'") + "';" +
+                        "try { return document.querySelectorAll(sel).length; } catch(e){ return 999; }";
+                    Long count = (Long) ((JavascriptExecutor) driver).executeScript(uniquenessScript);
+                    if (count != null && count == 1L) {
+                        return shortSelector; // unique enough
                     }
-                } catch (Exception ignore) {
-                    // ignore JS path failure, fallback below
+                } catch (Exception ignore) {}
+                // Fall through to full path if not unique
+            }
+            {
+                // Deterministic full path with nth-of-type at each level for guaranteed uniqueness
+                String script = "function fullPath(el){" +
+                        " if(!el||el.nodeType!==1) return '';" +
+                        " var parts=[];" +
+                        " while(el && el.nodeType===1 && el.tagName!=='HTML'){" +
+                        "   if(el.id){ parts.unshift('#'+cssEscape(el.id)); break; }" +
+                        "   var tag=el.tagName.toLowerCase();" +
+                        "   var cls=(el.className||'').trim().split(/\\s+/)[0]||'';" +
+                        "   var nth=1, sib=el; while((sib=sib.previousElementSibling)!=null){ if(sib.nodeName===el.nodeName) nth++; }" +
+                        "   var seg=tag+(cls?'.'+cssEscape(cls):'')+':nth-of-type('+nth+')';" +
+                        "   parts.unshift(seg);" +
+                        "   el=el.parentElement;" +
+                        " }" +
+                        " return parts.join(' > ');" +
+                        " function cssEscape(s){ return s.replace(/([:#.>+~\\\\[\\\\]\\\\s])/g,'\\\\$1'); }" +
+                        "}; return fullPath(arguments[0]);";
+                try {
+                    String path = (String) ((JavascriptExecutor) driver).executeScript(script, element);
+                    if (path != null && !path.isEmpty()) return path;
+                } catch (Exception e) {
+                    logger.warn("Full path selector JS failed: {}", e.getMessage());
                 }
-                // Ultimate fallback simple tag:nth-of-type
-                String fallbackScript = "var e=arguments[0]; var sib= e, n=1; while((sib=sib.previousElementSibling)!=null){ if(sib.tagName===e.tagName) n++; } return n;";
+                // Fallback simple nth-of-type
+                String fallbackScript = "var e=arguments[0]; var n=1, p=e; while((p=p.previousElementSibling)!=null){ if(p.tagName===e.tagName) n++; } return n;";
                 Long nth = (Long) ((JavascriptExecutor) driver).executeScript(fallbackScript, element);
                 return tagName + ":nth-of-type(" + nth + ")";
             }
