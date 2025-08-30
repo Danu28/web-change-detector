@@ -141,7 +141,7 @@ public class ChangeDetector {
                     "text",
                     oldElement.getText(),
                     newElement.getText(),
-                    "text",
+                    "TEXT_MODIFICATION",
                     1 - similarity
                 );
                 ec.setClassification(classifyChange(ec));

@@ -220,7 +220,24 @@ public class SimpleReportGenerator {
                 String confidencePercent = change.getMatchConfidence() != null ? 
                     String.format("%.1f", change.getMatchConfidence() * 100) : "N/A";
                 
-                html.append("<div class='change ").append(changeClass).append("' data-type='").append(changeClass).append("'>\n")
+                // Determine base type tag separate from severity (so critical text still matches 'text')
+                String baseTypeTag;
+                if ("TEXT_MODIFICATION".equals(change.getChangeType())) {
+                    baseTypeTag = "text";
+                } else if ("ELEMENT_ADDED".equals(change.getChangeType()) || "ELEMENT_REMOVED".equals(change.getChangeType()) || "structural".equals(change.getChangeType())) {
+                    baseTypeTag = "structural";
+                } else if ("critical".equals(changeClass)) { // fallback if only classification provided
+                    baseTypeTag = "critical"; // will be expanded below
+                } else {
+                    baseTypeTag = "cosmetic"; // default bucket
+                }
+                // Build data-groups list (space-separated) for filtering
+                StringBuilder groups = new StringBuilder(baseTypeTag);
+                if (!changeClass.equals(baseTypeTag)) {
+                    groups.append(' ').append(changeClass);
+                }
+                html.append("<div class='change ").append(changeClass).append("' data-type='").append(baseTypeTag)
+                    .append("' data-groups='").append(groups).append("'>\n")
                     .append("<div class='change-header'>\n")
                     .append("<div class='change-title'>").append(changeIcon).append(" Change #").append(i + 1).append("</div>\n")
                     .append("<div class='change-type-badge' style='background: ").append(getBadgeColor(changeClass)).append("; color: white;'>")
@@ -279,12 +296,9 @@ public class SimpleReportGenerator {
             .append("  \n")
             .append("  // Filter changes\n")
             .append("  changes.forEach(change => {\n")
-            .append("    if (type === 'all') {\n")
-            .append("      change.style.display = 'block';\n")
-            .append("    } else {\n")
-            .append("      const changeType = change.getAttribute('data-type');\n")
-            .append("      change.style.display = changeType === type ? 'block' : 'none';\n")
-            .append("    }\n")
+            .append("    if (type === 'all') { change.style.display='block'; return; }\n")
+            .append("    const groups = (change.getAttribute('data-groups')||'').split(/\\s+/);\n")
+            .append("    change.style.display = groups.includes(type) ? 'block' : 'none';\n")
             .append("  });\n")
             .append("}\n")
             .append("\n")
