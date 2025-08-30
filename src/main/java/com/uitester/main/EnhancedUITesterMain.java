@@ -313,7 +313,7 @@ public class EnhancedUITesterMain {
                       List<ElementData> baseline,
                       List<ElementData> current) throws IOException {
             String reportPath = config.getReportFile().replace(".html", "-simple.html");
-            new SimpleReportGenerator().generateReport(changes, baseline, current, reportPath);
+            new SimpleReportGenerator(config.getProjectConfig()).generateReport(changes, baseline, current, reportPath);
             logger.info("📄 Report generated: {}", reportPath);
         }
     }

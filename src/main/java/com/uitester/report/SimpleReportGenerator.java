@@ -2,6 +2,7 @@ package com.uitester.report;
 
 import com.uitester.diff.ElementChange;
 import com.uitester.core.ElementData;
+import com.uitester.core.ProjectConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,14 +20,18 @@ import java.util.stream.Collectors;
  */
 public class SimpleReportGenerator {
     private static final Logger logger = LoggerFactory.getLogger(SimpleReportGenerator.class);
+    private final ProjectConfig config;
+
+    public SimpleReportGenerator() { this.config = null; }
+    public SimpleReportGenerator(ProjectConfig config) { this.config = config; }
     
     /**
      * Generate a simple, readable HTML report
      */
-    public void generateReport(List<ElementChange> changes, 
-                              List<ElementData> oldElements, 
-                              List<ElementData> newElements, 
-                              String outputPath) throws IOException {
+    public void generateReport(List<ElementChange> changes,
+                               List<ElementData> oldElements,
+                               List<ElementData> newElements,
+                               String outputPath) throws IOException {
         
         StringBuilder html = new StringBuilder();
         
@@ -117,11 +122,11 @@ public class SimpleReportGenerator {
             .append("</div>\n");
         
         // Summary cards section
-        Map<String, Long> changeTypeCount = changes.stream()
-            .collect(Collectors.groupingBy(
-                change -> change.getChangeType() != null ? change.getChangeType() : "unknown",
-                Collectors.counting()
-            ));
+    Map<String, Long> changeTypeCount = changes.stream()
+        .collect(Collectors.groupingBy(
+            change -> change.getChangeType() != null ? change.getChangeType() : "unknown",
+            Collectors.counting()
+        ));
         
         // Calculate impact metrics
         long criticalChanges = changes.stream()
@@ -182,8 +187,15 @@ public class SimpleReportGenerator {
             .append("<input type='text' class='search-box' placeholder='Search changes...' onkeyup='searchChanges(this.value)'>\n")
             .append("</div>\n</div>\n");
         
-        // Individual changes with enhanced display
-        html.append("<h2>Detailed Change Analysis</h2>\n");
+    // Sort changes by severity order if configured
+    List<String> severityOrder = config != null && config.getReportingSettings() != null ?
+        config.getReportingSettings().getSeverityOrder() : null;
+    if (severityOrder != null && !severityOrder.isEmpty()) {
+        changes.sort((a, b) -> severityCompare(a, b, severityOrder));
+    }
+
+    // Individual changes with enhanced display
+    html.append("<h2>Detailed Change Analysis</h2>\n");
         
         if (changes.isEmpty()) {
             html.append("<div style='text-align: center; padding: 40px; color: #718096;'>\n")
@@ -225,19 +237,28 @@ public class SimpleReportGenerator {
                     .append("</div>\n");
                 
                 // Confidence visualization
-                html.append("<div class='confidence-bar'>\n")
-                    .append("<div class='confidence-fill' style='width: ").append(confidencePercent).append("%;'></div>\n")
-                    .append("</div>\n")
-                    .append("<div class='confidence-text'>\n")
-                    .append("<span>Confidence Level</span>\n")
-                    .append("<span><strong>").append(confidencePercent).append("%</strong> ")
-                    .append(getConfidenceLabel(change.getMatchConfidence() != null ? change.getMatchConfidence() : 0.0)).append("</span>\n")
-                    .append("</div>\n")
-                    .append("</div>\n");
+        boolean showConfidence = config == null || config.getReportingSettings() == null ||
+            config.getReportingSettings().getEnableConfidenceBar() == null ||
+            Boolean.TRUE.equals(config.getReportingSettings().getEnableConfidenceBar());
+        if (showConfidence) {
+            html.append("<div class='confidence-bar'>\n")
+                .append("<div class='confidence-fill' style='width: ").append(confidencePercent).append("%;'></div>\n")
+                .append("</div>\n")
+                .append("<div class='confidence-text'>\n")
+                .append("<span>Confidence Level</span>\n")
+                .append("<span><strong>").append(confidencePercent).append("%</strong> ")
+                .append(getConfidenceLabel(change.getMatchConfidence() != null ? change.getMatchConfidence() : 0.0)).append("</span>\n")
+                .append("</div>\n");
+        }
+        html.append("</div>\n");
             }
         }
         
         // JavaScript for interactivity
+        String autoScrollTarget = null;
+        if (config != null && config.getReportingSettings() != null) {
+            autoScrollTarget = config.getReportingSettings().getAutoScrollTo();
+        }
         html.append("<script>\n")
             .append("function filterChanges(type) {\n")
             .append("  const changes = document.querySelectorAll('.change');\n")
@@ -268,15 +289,11 @@ public class SimpleReportGenerator {
             .append("  });\n")
             .append("}\n")
             .append("\n")
-            .append("// Auto-scroll to first critical change\n")
+            .append("// Auto-scroll based on config target\n")
             .append("document.addEventListener('DOMContentLoaded', function() {\n")
-            .append("  const firstCritical = document.querySelector('.change.critical');\n")
-            .append("  if (firstCritical) {\n")
-            .append("    setTimeout(() => {\n")
-            .append("      firstCritical.scrollIntoView({ behavior: 'smooth', block: 'center' });\n")
-            .append("      firstCritical.style.animation = 'pulse 2s ease-in-out';\n")
-            .append("    }, 1000);\n")
-            .append("  }\n")
+            .append("  const targetClass = '").append(autoScrollTarget != null ? autoScrollTarget : "critical").append("';\n")
+            .append("  const first = document.querySelector('.change.' + targetClass);\n")
+            .append("  if (first) { setTimeout(()=>{ first.scrollIntoView({behavior:'smooth',block:'center'}); first.style.animation='pulse 2s ease-in-out'; },1000);}\n")
             .append("});\n")
             .append("</script>\n")
             .append("\n")
@@ -343,6 +360,11 @@ public class SimpleReportGenerator {
      * Get badge color for change type
      */
     private String getBadgeColor(String changeClass) {
+        if (config != null && config.getReportingSettings() != null &&
+                config.getReportingSettings().getBadgeColors() != null) {
+            String custom = config.getReportingSettings().getBadgeColors().get(changeClass);
+            if (custom != null && !custom.isEmpty()) return custom;
+        }
         switch (changeClass) {
             case "critical": return "#e53e3e";
             case "text": return "#38a169";
@@ -350,6 +372,15 @@ public class SimpleReportGenerator {
             case "cosmetic": return "#3182ce";
             default: return "#718096";
         }
+    }
+
+    private int severityCompare(ElementChange a, ElementChange b, List<String> order) {
+        return Integer.compare(severityIndex(a, order), severityIndex(b, order));
+    }
+    private int severityIndex(ElementChange c, List<String> order) {
+        String cls = getEnhancedChangeClass(c);
+        int idx = order.indexOf(cls);
+        return idx >= 0 ? idx : Integer.MAX_VALUE;
     }
     
     /**
