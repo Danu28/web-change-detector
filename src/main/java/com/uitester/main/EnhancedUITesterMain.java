@@ -205,8 +205,27 @@ public class EnhancedUITesterMain {
                 currentElements = fileManager.loadElements(config.getCurrentSnapshot());
             } else {
                 ElementCapture capture = new ElementCapture(config, projectConfig);
-                baselineElements = capture.captureEnhancedElements(config.getBaselineUrl(), "baseline");
-                currentElements = capture.captureEnhancedElements(config.getCurrentUrl(), "current");
+                if (config.isParallelCrawling()) {
+                    logger.info("⚡ Parallel crawling enabled (baseline & current) ...");
+                    java.util.concurrent.CompletableFuture<List<ElementData>> baseF = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                        try { return capture.captureEnhancedElements(config.getBaselineUrl(), "baseline"); } catch (Exception e) { throw new RuntimeException(e); }
+                    });
+                    java.util.concurrent.CompletableFuture<List<ElementData>> currF = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                        try { return capture.captureEnhancedElements(config.getCurrentUrl(), "current"); } catch (Exception e) { throw new RuntimeException(e); }
+                    });
+                    try {
+                        baselineElements = baseF.get();
+                        currentElements = currF.get();
+                    } catch (Exception ex) {
+                        logger.warn("Parallel capture failed, falling back to sequential: {}", ex.getMessage());
+                        baselineElements = capture.captureEnhancedElements(config.getBaselineUrl(), "baseline");
+                        currentElements = capture.captureEnhancedElements(config.getCurrentUrl(), "current");
+                    }
+                } else {
+                    logger.info("🔁 Parallel crawling disabled; capturing sequentially...");
+                    baselineElements = capture.captureEnhancedElements(config.getBaselineUrl(), "baseline");
+                    currentElements = capture.captureEnhancedElements(config.getCurrentUrl(), "current");
+                }
                 fileManager.saveElements(baselineElements, config.getBaselineSnapshot());
                 fileManager.saveElements(currentElements, config.getCurrentSnapshot());
             }
