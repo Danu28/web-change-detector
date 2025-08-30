@@ -311,7 +311,12 @@ public class EnhancedReportGenerator {
         int confidenceCount = 0;
         
         for (ElementChange change : changes) {
-            switch (change.getClassification()) {
+            String classification = change.getClassification();
+            if (classification == null) {
+                classification = "unknown";
+            }
+            
+            switch (classification) {
                 case "critical":
                     critical++;
                     break;
@@ -320,6 +325,9 @@ public class EnhancedReportGenerator {
                     break;
                 case "noise":
                     noise++;
+                    break;
+                default:
+                    noise++; // Default unknown changes to noise
                     break;
             }
             
@@ -485,6 +493,77 @@ public class EnhancedReportGenerator {
         }
         
         return insights;
+    }
+    
+    /**
+     * Enhance change data with meaningful descriptions using ChangeAnalyzer
+     */
+    private List<EnhancedChangeData> enhanceChanges(List<ElementChange> changes) {
+        List<EnhancedChangeData> enhancedChanges = new ArrayList<>();
+        
+        for (ElementChange change : changes) {
+            // Use ChangeAnalyzer to get human-readable description
+            ChangeAnalyzer.EnhancedChange analyzed = ChangeAnalyzer.analyzeChange(change);
+            
+            EnhancedChangeData enhancedChange = new EnhancedChangeData();
+            enhancedChange.setElement(analyzed.getElement());
+            enhancedChange.setSummary(analyzed.getSummary());
+            enhancedChange.setDetails(analyzed.getDetails());
+            enhancedChange.setImpact(analyzed.getImpact());
+            enhancedChange.setConfidence(analyzed.getConfidence());
+            enhancedChange.setChangeType(analyzed.getChangeType());
+            
+            // Add raw data for debugging if needed
+            enhancedChange.setProperty(change.getProperty());
+            enhancedChange.setClassification(change.getClassification() != null ? change.getClassification() : "unknown");
+            
+            enhancedChanges.add(enhancedChange);
+        }
+        
+        return enhancedChanges;
+    }
+    
+    /**
+     * Enhanced change data with human-readable descriptions
+     */
+    public static class EnhancedChangeData {
+        private String element;
+        private String summary;
+        private String details;
+        private String impact;
+        private double confidence;
+        private String changeType;
+        private String property;
+        private String classification;
+        
+        // Getters and setters
+        public String getElement() { return element; }
+        public void setElement(String element) { this.element = element; }
+        
+        public String getSummary() { return summary; }
+        public void setSummary(String summary) { this.summary = summary; }
+        
+        public String getDetails() { return details; }
+        public void setDetails(String details) { this.details = details; }
+        
+        public String getImpact() { return impact; }
+        public void setImpact(String impact) { this.impact = impact; }
+        
+        public double getConfidence() { return confidence; }
+        public void setConfidence(double confidence) { this.confidence = confidence; }
+        
+        public String getChangeType() { return changeType; }
+        public void setChangeType(String changeType) { this.changeType = changeType; }
+        
+        public String getProperty() { return property; }
+        public void setProperty(String property) { this.property = property; }
+        
+        public String getClassification() { return classification; }
+        public void setClassification(String classification) { this.classification = classification; }
+        
+        public String getConfidencePercentage() {
+            return String.format("%.1f%%", confidence * 100);
+        }
     }
     
     /**

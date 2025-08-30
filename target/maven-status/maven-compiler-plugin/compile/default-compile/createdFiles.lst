@@ -1,3 +1,4 @@
+com\uitester\report\ChangeAnalyzer$EnhancedChange.class
 com\uitester\report\ReportGenerator.class
 com\uitester\core\ProjectConfig$PerformanceSettings.class
 com\uitester\core\ConfigLoader.class
@@ -11,13 +12,17 @@ com\uitester\core\ProjectConfig.class
 com\uitester\report\EnhancedReportGenerator$CategorySection.class
 com\uitester\core\ProjectConfig$FingerprintSettings.class
 com\uitester\core\StructuralAnalyzer.class
+com\uitester\main\EnhancedUITesterMain.class
 com\uitester\core\StructuralAnalyzer$StructuralAnalysis.class
 com\uitester\report\EnhancedReportGenerator$ComparisonSummary.class
 com\uitester\report\EnhancedReportGenerator$StructuralInsights.class
 com\uitester\diff\ElementMatcher$FuzzyMatch.class
+com\uitester\report\EnhancedReportGenerator$EnhancedChangeData.class
 com\uitester\diff\ElementMatcher.class
 com\uitester\core\StructuralAnalyzer$StructuralNode.class
 com\uitester\report\EnhancedReportGenerator$PerformanceMetrics.class
+com\uitester\report\ChangeAnalyzer.class
+com\uitester\report\SimpleReportGenerator.class
 com\uitester\diff\ChangeDetector$ComprehensiveAnalysisResult.class
 com\uitester\core\ProjectConfig$ValidationResult.class
 com\uitester\report\EnhancedReportGenerator.class

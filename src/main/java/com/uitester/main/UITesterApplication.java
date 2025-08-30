@@ -6,6 +6,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,10 +26,14 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uitester.core.Configuration;
 import com.uitester.core.ElementData;
+import com.uitester.core.ProjectConfig;
+import com.uitester.core.StructuralAnalyzer;
 import com.uitester.crawler.DOMCSSCrawler;
-import com.uitester.diff.ChangeDetector;
 import com.uitester.diff.ElementChange;
+import com.uitester.diff.ElementMatcher;
 import com.uitester.report.ReportGenerator;
+import com.uitester.report.EnhancedReportGenerator;
+import com.uitester.report.SimpleReportGenerator;
 
 /**
  * Main application class for UI Tester.
@@ -298,18 +304,32 @@ public class UITesterApplication {
             currentElements = crawlPage(config.getCurrentUrl(), "current");
         }
         
-        // Detect changes
-        logger.info("Detecting changes between baseline and current snapshots");
-        ChangeDetector changeDetector = new ChangeDetector(config);
-        List<ElementChange> changes = changeDetector.detectChanges(baselineElements, currentElements, config.getMaxChanges());
+        // Detect changes using enhanced 3-phase approach
+        logger.info("Detecting changes between baseline and current snapshots using enhanced approach");
+        
+        // Phase 2: Enhanced fingerprint-based matching
+        ProjectConfig projectConfig = new ProjectConfig(); // Create default project config
+        ElementMatcher elementMatcher = new ElementMatcher(projectConfig);
+        ElementMatcher.MatchResult matchResult = elementMatcher.matchElements(baselineElements, currentElements);
+        
+        // Convert match results to changes
+        List<ElementChange> enhancedChanges = convertMatchesToChanges(matchResult);
+        
+        // Phase 3: Structural analysis
+        StructuralAnalyzer structuralAnalyzer = new StructuralAnalyzer(projectConfig);
+        StructuralAnalyzer.StructuralAnalysis baselineStructure = structuralAnalyzer.analyzeStructure(baselineElements);
+        StructuralAnalyzer.StructuralAnalysis currentStructure = structuralAnalyzer.analyzeStructure(currentElements);
+        
+        // Enhance changes with structural context
+        List<ElementChange> finalChanges = structuralAnalyzer.analyzeStructuralChanges(enhancedChanges, baselineStructure, currentStructure);
         
         // Save changes to file
-        saveChangesToFile(changes, config.getChangesFile());
+        saveChangesToFile(finalChanges, config.getChangesFile());
         
-        // Generate report
-        logger.info("Generating HTML report");
-        ReportGenerator reportGenerator = new ReportGenerator();
-        reportGenerator.generateReport(changes, config.getCurrentUrl(), config.getReportFile());
+        // Generate enhanced human-readable report
+        logger.info("Generating enhanced HTML report");
+        SimpleReportGenerator reportGenerator = new SimpleReportGenerator();
+        reportGenerator.generateReport(finalChanges, baselineElements, currentElements, config.getReportFile());
         
         logger.info("Testing complete. Report available at: {}", config.getReportFile());
     }
@@ -413,5 +433,69 @@ public class UITesterApplication {
         }
         
         logger.info("Saved {} changes to {}", changes.size(), filePath);
+    }
+    
+    /**
+     * Convert element match results to changes
+     * 
+     * @param matchResult Element match result
+     * @return List of element changes
+     */
+    private List<ElementChange> convertMatchesToChanges(ElementMatcher.MatchResult matchResult) {
+        List<ElementChange> changes = new ArrayList<>();
+        
+        // Process matched pairs for modifications
+        for (Map.Entry<ElementData, ElementData> pair : matchResult.getMatchedPairs().entrySet()) {
+            ElementData baseline = pair.getKey();
+            ElementData current = pair.getValue();
+            
+            // Check for CSS changes
+            if (!baseline.getStyles().equals(current.getStyles())) {
+                ElementChange change = new ElementChange();
+                change.setElement(baseline.getSelector());
+                change.setProperty("styles");
+                change.setChangeType("CSS_MODIFICATION");
+                change.setOldValue(baseline.getStyles().toString());
+                change.setNewValue(current.getStyles().toString());
+                change.setMatchConfidence(matchResult.getMatchConfidences().getOrDefault(baseline, 1.0));
+                changes.add(change);
+            }
+            
+            // Check for text changes
+            if (!Objects.equals(baseline.getText(), current.getText())) {
+                ElementChange change = new ElementChange();
+                change.setElement(baseline.getSelector());
+                change.setProperty("text");
+                change.setChangeType("TEXT_MODIFICATION");
+                change.setOldValue(baseline.getText());
+                change.setNewValue(current.getText());
+                change.setMatchConfidence(matchResult.getMatchConfidences().getOrDefault(baseline, 1.0));
+                changes.add(change);
+            }
+        }
+        
+        // Process added elements
+        for (ElementData added : matchResult.getAddedElements()) {
+            ElementChange change = new ElementChange();
+            change.setElement(added.getSelector());
+            change.setProperty("element");
+            change.setChangeType("ELEMENT_ADDED");
+            change.setNewValue(added.toString());
+            change.setMatchConfidence(1.0);
+            changes.add(change);
+        }
+        
+        // Process removed elements
+        for (ElementData removed : matchResult.getRemovedElements()) {
+            ElementChange change = new ElementChange();
+            change.setElement(removed.getSelector());
+            change.setProperty("element");
+            change.setChangeType("ELEMENT_REMOVED");
+            change.setOldValue(removed.toString());
+            change.setMatchConfidence(1.0);
+            changes.add(change);
+        }
+        
+        return changes;
     }
 }
