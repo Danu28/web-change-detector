@@ -3,7 +3,7 @@
     "attributesToCapture": ["href","src","alt","id","class","type","data-testid"],
     "stylesToCapture": ["color","background-color","font-size","font-weight","font-family","width","height","position","margin","padding","border","text-align","line-height","opacity","z-index","box-shadow","border-radius"],
     "ignoreAttributePatterns": ["data-reactid.*","data-react-.*","data-testid-.*","data-automation-.*","_ngcontent-.*","_nghost-.*",".*null.*",".*dyMonitor.*"],
-    "captureOnlyViewport": true,
+    "captureOnlyViewport": false,
     "maxTextLength": 1000,
     "ignoreEmptyText": true
   },
@@ -20,8 +20,11 @@
     },
     "changeMagnitudeWeights": {"layout": 0.8, "typography": 0.6, "appearance": 0.7, "positioning": 0.5}
   },
+  "performanceSettings": {
+    "enableParallelProcessing": true
+  },
   "outputSettings": {
-    "directoryTemplate": "{section}_{baselineHost}-vs-{currentHost}_{timestamp}",
+    "directoryTemplate": "{section}_{baselineHost}-vs-{currentHost}",
     "baselineFile": "baseline.json",
     "currentFile": "current.json",
     "changesFile": "changes.json",
