@@ -284,8 +284,8 @@ public class ChangeDetector {
                 
                 if (!nullSafeEquals(oldVal, newVal)) {
                     String positionProperty = "position_" + prop;
-                    // Skip if this position property is in the ignore list 
-                    if (ignoreStyleChanges.contains(positionProperty)) {
+                    // Skip if this position property or general "position" is in the ignore list 
+                    if (ignoreStyleChanges.contains(positionProperty) || ignoreStyleChanges.contains("position")) {
                         continue;
                     }
                     
