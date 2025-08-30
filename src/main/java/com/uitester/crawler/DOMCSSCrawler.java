@@ -309,56 +309,36 @@ public class DOMCSSCrawler {
                 // Use first class as it's often most specific
                 return tagName + "." + elementClass.split(" ")[0];
             } else {
-                // Create a more unique selector by including parent context
-                try {
-                    // Get parent element info to create more specific selector
-                    String parentScript = 
-                        "var element = arguments[0];" +
-                        "var parent = element.parentNode;" +
-                        "if (!parent || parent.tagName === 'BODY' || parent.tagName === 'HTML') {" +
-                        "    return null;" +
+                // Build a full unique CSS path (stop early if an ancestor has id)
+                String script = "function cssPath(el){" +
+                        "if(!el || el.nodeType!==1) return '';" +
+                        "if(el.id) return '#'+el.id;" +
+                        "var path=[];" +
+                        "while(el && el.nodeType===1){" +
+                        "  if(el.id){ path.unshift('#'+el.id); break;}" +
+                        "  var name=el.nodeName.toLowerCase();" +
+                        "  var cls=(el.className||'').trim().split(/\\s+/)[0];" +
+                        "  var sib=el, nth=1;" +
+                        "  while((sib=sib.previousElementSibling)!=null){ if(sib.nodeName===el.nodeName) nth++; }" +
+                        "  var seg=name + (cls?'.'+cls:'') + ':nth-of-type(' + nth + ')';" +
+                        "  path.unshift(seg);" +
+                        "  el=el.parentElement;" +
+                        "  if(el && el.tagName==='HTML') break;" +
                         "}" +
-                        "" +
-                        "// Get parent's class or id" +
-                        "var parentId = parent.id;" +
-                        "var parentClass = parent.className;" +
-                        "" +
-                        "return {" +
-                        "    tag: parent.tagName.toLowerCase()," +
-                        "    id: parentId," +
-                        "    class: parentClass ? parentClass.split(' ')[0] : ''" +
-                        "};";
-                    
-                    @SuppressWarnings("unchecked")
-                    Map<String, String> parentInfo = (Map<String, String>) ((JavascriptExecutor) driver).executeScript(parentScript, element);
-                    
-                    // Get position among siblings of same tag
-                    String siblingsScript = 
-                        "var element = arguments[0];" +
-                        "var siblings = Array.from(element.parentNode.children).filter(e => e.tagName === element.tagName);" +
-                        "return siblings.indexOf(element) + 1;";
-                    
-                    Long position = (Long) ((JavascriptExecutor) driver).executeScript(siblingsScript, element);
-                    
-                    // Create more specific selector with parent context
-                    if (parentInfo != null) {
-                        if (parentInfo.containsKey("id") && !parentInfo.get("id").isEmpty()) {
-                            return "#" + parentInfo.get("id") + " > " + tagName + ":nth-of-type(" + position + ")";
-                        } else if (parentInfo.containsKey("class") && !parentInfo.get("class").isEmpty()) {
-                            return parentInfo.get("tag") + "." + parentInfo.get("class") + " > " + tagName + ":nth-of-type(" + position + ")";
-                        }
+                        "return path.join(' > ');" +
+                        "} return cssPath(arguments[0]);";
+                try {
+                    String fullPath = (String) ((JavascriptExecutor) driver).executeScript(script, element);
+                    if (fullPath != null && !fullPath.isEmpty()) {
+                        return fullPath;
                     }
-                } catch (Exception e) {
-                    logger.warn("Error creating parent-based selector: {}", e.getMessage());
+                } catch (Exception ignore) {
+                    // ignore JS path failure, fallback below
                 }
-                
-                // Fall back to simple tag with position
-                String fallbackScript = 
-                    "var element = arguments[0];" +
-                    "var siblings = Array.from(element.parentNode.children).filter(e => e.tagName === element.tagName);" +
-                    "return siblings.indexOf(element) + 1;";
-                Long elementPosition = (Long) ((JavascriptExecutor) driver).executeScript(fallbackScript, element);
-                return tagName + ":nth-of-type(" + elementPosition + ")";
+                // Ultimate fallback simple tag:nth-of-type
+                String fallbackScript = "var e=arguments[0]; var sib= e, n=1; while((sib=sib.previousElementSibling)!=null){ if(sib.tagName===e.tagName) n++; } return n;";
+                Long nth = (Long) ((JavascriptExecutor) driver).executeScript(fallbackScript, element);
+                return tagName + ":nth-of-type(" + nth + ")";
             }
         } catch (Exception e) {
             logger.error("Error creating element selector: {}", e.getMessage());
