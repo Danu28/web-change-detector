@@ -1,20 +1,13 @@
 {
   "captureSettings": {
     "attributesToCapture": [
-      "id",
-      "class",
-      "name",
       "href",
       "src",
       "alt",
-      "title",
+      "id",
+      "class",
       "type",
-      "value",
-      "placeholder",
-      "data-testid",
-      "data-qa",
-      "role",
-      "aria-label"
+      "data-testid"
     ],
     "stylesToCapture": [
       "color",
@@ -22,9 +15,6 @@
       "font-size",
       "font-weight",
       "font-family",
-      "display",
-      "visibility",
-      "position",
       "width",
       "height",
       "margin",
@@ -54,21 +44,20 @@
       "data-testid-.*",
       "data-automation-.*",
       "_ngcontent-.*",
-      "_nghost-.*"
+      "_nghost-.*",
+      ".*null.*",
+      ".*dyMonitor.*"
     ],
     "captureOnlyViewport": true,
     "maxTextLength": 1000,
     "ignoreEmptyText": true
   },
   "comparisonSettings": {
-    "textSimilarityThreshold": 0.95,
-    "numericChangeThreshold": 0.1,
+    "textSimilarityThreshold": 0.90,
+    "numericChangeThreshold": 0.15,
     "colorChangeThreshold": 0.1,
     "ignoreStyleChanges": [
-      "font-family",
-      "width",
-      "height",
-      "box-shadow"
+      "width"
     ],
     "styleCategories": {
       "layout": [

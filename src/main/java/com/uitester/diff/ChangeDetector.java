@@ -152,11 +152,52 @@ public class ChangeDetector {
         Set<String> allAttrs = new HashSet<>(oldAttrs.keySet());
         allAttrs.addAll(newAttrs.keySet());
         
+        // Get ignore patterns from configuration
+        List<String> ignoreAttributePatterns = new ArrayList<>();
+        if (configuration != null && configuration.getProjectConfig() != null &&
+            configuration.getProjectConfig().getCaptureSettings() != null &&
+            configuration.getProjectConfig().getCaptureSettings().getIgnoreAttributePatterns() != null) {
+            ignoreAttributePatterns = configuration.getProjectConfig().getCaptureSettings().getIgnoreAttributePatterns();
+        }
+        
         for (String attr : allAttrs) {
             String oldVal = oldAttrs.get(attr);
             String newVal = newAttrs.get(attr);
             
             if (!nullSafeEquals(oldVal, newVal)) {
+                // Check if this attribute change should be ignored
+                boolean shouldIgnore = false;
+                
+                // Check against ignore patterns - pattern matching with regex support
+                for (String pattern : ignoreAttributePatterns) {
+                    try {
+                        // Support regex patterns
+                        if ((oldVal != null && oldVal.matches(pattern)) ||
+                            (newVal != null && newVal.matches(pattern))) {
+                            shouldIgnore = true;
+                            break;
+                        }
+                        // Also check simple contains for backwards compatibility
+                        if ((oldVal != null && oldVal.contains(pattern.replace(".*", ""))) ||
+                            (newVal != null && newVal.contains(pattern.replace(".*", "")))) {
+                            shouldIgnore = true;
+                            break;
+                        }
+                    } catch (Exception e) {
+                        // If regex fails, fall back to simple contains check
+                        String cleanPattern = pattern.replace(".*", "");
+                        if ((oldVal != null && oldVal.contains(cleanPattern)) ||
+                            (newVal != null && newVal.contains(cleanPattern))) {
+                            shouldIgnore = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (shouldIgnore) {
+                    continue; // Skip this attribute change
+                }
+                
                 elementChanges.add(new ElementChange(
                     selector,
                     "attr_" + attr,
@@ -218,25 +259,35 @@ public class ChangeDetector {
         }
         
         // Position changes - detect layout shifts
+        // Only track position if position-x/position-y are in stylesToCapture
+        List<String> stylesToCapture = new ArrayList<>();
+        if (configuration != null && configuration.getProjectConfig() != null &&
+            configuration.getProjectConfig().getCaptureSettings() != null &&
+            configuration.getProjectConfig().getCaptureSettings().getStylesToCapture() != null) {
+            stylesToCapture = configuration.getProjectConfig().getCaptureSettings().getStylesToCapture();
+        }
+        
         Map<String, Object> oldPosition = oldElement.getPosition();
         Map<String, Object> newPosition = newElement.getPosition();
         
         if (oldPosition != null && newPosition != null) {
-            // Check for position changes (skip width/height if already detected as style changes)
-            String[] positionProps = {"x", "y", "width", "height"};
+            // Check for position changes - focus only on coordinates (x, y) for layout shifts
+            String[] positionProps = {"x", "y"};
             for (String prop : positionProps) {
+                String positionProperty = "position_" + prop;
+                
+                // Only track this position property if it's in stylesToCapture
+                if (!stylesToCapture.contains(positionProperty)) {
+                    continue;
+                }
+                
                 Object oldVal = oldPosition.get(prop);
                 Object newVal = newPosition.get(prop);
                 
                 if (!nullSafeEquals(oldVal, newVal)) {
-                    // Skip width/height changes if they were already detected as style dimension changes
-                    if ((prop.equals("width") || prop.equals("height"))) {
-                        boolean styleChangeExists = elementChanges.stream()
-                            .anyMatch(change -> change.getProperty().equals(prop) && 
-                                     change.getChangeType().equals("style_dimension"));
-                        if (styleChangeExists) {
-                            continue; // Skip this position change as it's redundant
-                        }
+                    // Skip if this position property is in the ignore list 
+                    if (ignoreStyleChanges.contains(positionProperty)) {
+                        continue;
                     }
                     
                     double magnitude = 0.5; // Default magnitude for position changes

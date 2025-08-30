@@ -22,6 +22,7 @@ import com.uitester.core.ElementData;
 import com.uitester.core.ProjectConfig;
 import com.uitester.core.StructuralAnalyzer;
 import com.uitester.crawler.DOMCSSCrawler;
+import com.uitester.diff.ChangeDetector;
 import com.uitester.diff.ElementChange;
 import com.uitester.diff.ElementMatcher;
 import com.uitester.report.SimpleReportGenerator;
@@ -66,7 +67,10 @@ public class EnhancedUITesterMain {
             
             // Create and run enhanced application
             EnhancedUITesterMain app = new EnhancedUITesterMain(config, projectConfig);
-            app.runEnhancedAnalysis();
+            
+            // Check if compare-only mode
+            boolean compareOnly = cmd.hasOption("compare-only");
+            app.runEnhancedAnalysis(compareOnly);
             
             logger.info("✅ Enhanced UI Testing completed successfully!");
             logger.info("=".repeat(70));
@@ -81,17 +85,27 @@ public class EnhancedUITesterMain {
     /**
      * Run the complete enhanced analysis workflow
      */
-    public void runEnhancedAnalysis() throws Exception {
+    public void runEnhancedAnalysis(boolean compareOnly) throws Exception {
         logger.info("🔍 Starting Enhanced UI Analysis Workflow");
         
-        // Phase 1: Enhanced Element Capture
-        logger.info("📊 Phase 1: Enhanced Element Capture with Fingerprinting");
-        List<ElementData> baselineElements = captureEnhancedElements(config.getBaselineUrl(), "baseline");
-        List<ElementData> currentElements = captureEnhancedElements(config.getCurrentUrl(), "current");
+        List<ElementData> baselineElements;
+        List<ElementData> currentElements;
         
-        // Save captured elements
-        saveElementsToFile(baselineElements, config.getBaselineSnapshot());
-        saveElementsToFile(currentElements, config.getCurrentSnapshot());
+        if (compareOnly) {
+            // Compare-only mode: Load existing files
+            logger.info("🔄 Compare-Only Mode: Loading existing element data");
+            baselineElements = loadElementsFromFile(config.getBaselineSnapshot());
+            currentElements = loadElementsFromFile(config.getCurrentSnapshot());
+        } else {
+            // Full mode: Capture elements from URLs
+            logger.info("📊 Phase 1: Enhanced Element Capture with Fingerprinting");
+            baselineElements = captureEnhancedElements(config.getBaselineUrl(), "baseline");
+            currentElements = captureEnhancedElements(config.getCurrentUrl(), "current");
+            
+            // Save captured elements
+            saveElementsToFile(baselineElements, config.getBaselineSnapshot());
+            saveElementsToFile(currentElements, config.getCurrentSnapshot());
+        }
         
         // Phase 2: Advanced Element Matching
         logger.info("🎯 Phase 2: Advanced Element Matching with Fingerprints");
@@ -192,75 +206,27 @@ public class EnhancedUITesterMain {
         
         logger.info("🔄 Converting match results to enhanced changes");
         
+        // Initialize ChangeDetector for proper filtering
+        Configuration configuration = new Configuration();
+        ChangeDetector changeDetector = new ChangeDetector(configuration);
+        
         // Process matched pairs for modifications
         for (var pair : matchResult.getMatchedPairs().entrySet()) {
             ElementData baseline = pair.getKey();
             ElementData current = pair.getValue();
             Double confidence = matchResult.getMatchConfidences().getOrDefault(baseline, 1.0);
             
-            // Analyze style changes
-            if (!baseline.getStyles().equals(current.getStyles())) {
-                ElementChange change = new ElementChange();
-                change.setElement(baseline.getSelector());
-                change.setProperty("styles");
-                change.setChangeType("CSS_MODIFICATION");
-                change.setOldValue(baseline.getStyles().toString());
-                change.setNewValue(current.getStyles().toString());
+            // Use ChangeDetector for proper filtering and change detection
+            List<ElementChange> elementChanges = changeDetector.detectElementChanges(baseline, current);
+            
+            // Add match confidence to all detected changes
+            for (ElementChange change : elementChanges) {
                 change.setMatchConfidence(confidence);
-                
-                // Calculate magnitude based on style differences
-                double magnitude = calculateStyleChangeMagnitude(baseline.getStyles(), current.getStyles());
-                change.setMagnitude(magnitude);
-                
-                changes.add(change);
-            }
-            
-            // Analyze text changes with improved logic
-            String baselineText = baseline.getText() != null ? baseline.getText() : "";
-            String currentText = current.getText() != null ? current.getText() : "";
-            
-            logger.info("🔍 Checking text for {}: baseline='{}', current='{}'", 
-                       baseline.getSelector(), baselineText, currentText);
-            
-            if (!baselineText.equals(currentText)) {
-                // Log the text comparison for debugging
-                logger.info("📝 Text change detected for {}: '{}' -> '{}'", 
-                           baseline.getSelector(), baselineText, currentText);
-                
-                ElementChange change = new ElementChange();
-                change.setElement(baseline.getSelector());
-                change.setProperty("text");
-                change.setChangeType("TEXT_MODIFICATION");
-                change.setOldValue(baselineText);
-                change.setNewValue(currentText);
-                change.setMatchConfidence(confidence);
-                
-                // Calculate magnitude based on text difference
-                double magnitude = calculateTextChangeMagnitude(baselineText, currentText);
-                change.setMagnitude(magnitude);
-                
-                changes.add(change);
-                logger.info("✅ Added TEXT_MODIFICATION: {} ('{}' -> '{}')", 
-                          baseline.getSelector(), baselineText, currentText);
-            } else {
-                logger.info("✅ No text change for {}", baseline.getSelector());
-            }
-            
-            // Analyze attribute changes
-            if (!baseline.getAttributes().equals(current.getAttributes())) {
-                ElementChange change = new ElementChange();
-                change.setElement(baseline.getSelector());
-                change.setProperty("attributes");
-                change.setChangeType("ATTRIBUTE_MODIFICATION");
-                change.setOldValue(baseline.getAttributes().toString());
-                change.setNewValue(current.getAttributes().toString());
-                change.setMatchConfidence(confidence);
-                change.setMagnitude(0.5); // Attribute changes are moderate
                 changes.add(change);
             }
         }
         
-        // Process added elements
+        // Process added elements (structural changes)
         for (ElementData added : matchResult.getAddedElements()) {
             ElementChange change = new ElementChange();
             change.setElement(added.getSelector());
@@ -272,7 +238,7 @@ public class EnhancedUITesterMain {
             changes.add(change);
         }
         
-        // Process removed elements
+        // Process removed elements (structural changes)
         for (ElementData removed : matchResult.getRemovedElements()) {
             ElementChange change = new ElementChange();
             change.setElement(removed.getSelector());
@@ -330,31 +296,6 @@ public class EnhancedUITesterMain {
         }
         
         return dp[s1.length()][s2.length()];
-    }
-    
-    /**
-     * Calculate magnitude of style changes
-     */
-    private double calculateStyleChangeMagnitude(java.util.Map<String, String> oldStyles, 
-                                                java.util.Map<String, String> newStyles) {
-        int totalProperties = Math.max(oldStyles.size(), newStyles.size());
-        int changedProperties = 0;
-        
-        // Count changed properties
-        for (String key : oldStyles.keySet()) {
-            if (!java.util.Objects.equals(oldStyles.get(key), newStyles.get(key))) {
-                changedProperties++;
-            }
-        }
-        
-        // Count new properties
-        for (String key : newStyles.keySet()) {
-            if (!oldStyles.containsKey(key)) {
-                changedProperties++;
-            }
-        }
-        
-        return totalProperties > 0 ? (double) changedProperties / totalProperties : 0.0;
     }
     
     /**
@@ -416,6 +357,22 @@ public class EnhancedUITesterMain {
     }
     
     /**
+     * Load elements from JSON file
+     */
+    private List<ElementData> loadElementsFromFile(String filePath) throws IOException {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            throw new IOException("File not found: " + filePath);
+        }
+        
+        List<ElementData> elements = objectMapper.readValue(file, 
+            objectMapper.getTypeFactory().constructCollectionType(List.class, ElementData.class));
+        
+        logger.info("📂 Loaded {} elements from {}", elements.size(), filePath);
+        return elements;
+    }
+    
+    /**
      * Save changes to JSON file
      */
     private void saveChangesToFile(List<ElementChange> changes, String filePath) throws IOException {
@@ -451,6 +408,8 @@ public class EnhancedUITesterMain {
                 .desc("Enable structural analysis (default: true)").build());
         options.addOption(Option.builder().longOpt("confidence-threshold").hasArg()
                 .desc("Minimum confidence threshold for matches (0.0-1.0, default: 0.7)").build());
+        options.addOption(Option.builder().longOpt("compare-only")
+                .desc("Compare existing baseline.json and current.json files without re-crawling").build());
         
         // Crawler settings
         options.addOption(Option.builder("m").longOpt("max-elements").hasArg().type(Number.class)
