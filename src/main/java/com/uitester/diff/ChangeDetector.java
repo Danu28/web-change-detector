@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.uitester.core.Configuration;
 import com.uitester.core.ElementData;
 import com.uitester.core.StructuralAnalyzer;
+import com.uitester.core.ProjectConfig;
 
 /**
  * Detects changes between two sets of elements.
@@ -225,7 +226,7 @@ public class ChangeDetector {
         }
         
         // Style categorization for better reporting
-        for (String style : allStyles) {
+    for (String style : allStyles) {
             String oldVal = oldStyles.get(style);
             String newVal = newStyles.get(style);
             
@@ -247,14 +248,18 @@ public class ChangeDetector {
                     magnitude = oldVal != null && newVal != null ? 0.5 : 1.0;
                 }
                 
-                elementChanges.add(new ElementChange(
-                    selector,
-                    style,
-                    oldVal,
-                    newVal,
-                    "style_" + category,
-                    magnitude
-                ));
+                // Skip insignificant changes based on comparison thresholds
+                if (configuration != null && configuration.getProjectConfig() != null &&
+                    configuration.getProjectConfig().getComparisonSettings() != null) {
+                    ProjectConfig.ComparisonSettings comp = configuration.getProjectConfig().getComparisonSettings();
+                    if ("dimension".equals(category) && comp.getNumericChangeThreshold() != null && magnitude < comp.getNumericChangeThreshold()) {
+                        continue;
+                    }
+                    if ("color".equals(category) && comp.getColorChangeThreshold() != null && magnitude < comp.getColorChangeThreshold()) {
+                        continue;
+                    }
+                }
+                elementChanges.add(new ElementChange(selector, style, oldVal, newVal, "style_" + category, magnitude));
             }
         }
         
@@ -380,45 +385,52 @@ public class ChangeDetector {
      * @return Classification string
      */
     public String classifyChange(ElementChange change) {
-        String element = change.getElement().toLowerCase();
-        String property = change.getProperty();
-        String changeType = change.getChangeType();
+        String element = change.getElement() != null ? change.getElement().toLowerCase() : "";
+        String property = change.getProperty() != null ? change.getProperty() : "";
+        String changeType = change.getChangeType() != null ? change.getChangeType() : "";
         double magnitude = change.getMagnitude();
-        
-        // Interactive elements (buttons, links, forms) - changes are critical
-        String[] interactiveElements = {"button", "input", "form", "a", "select"};
-        for (String keyword : interactiveElements) {
-            if (element.contains(keyword)) {
-                return "critical";
+
+        ProjectConfig pc = configuration != null ? configuration.getProjectConfig() : null;
+        ProjectConfig.ClassificationSettings cls = pc != null ? pc.getClassificationSettings() : null;
+        ProjectConfig.Flags flags = pc != null ? pc.getFlags() : null;
+
+        double textCritical = getMagnitudeThreshold(cls, "textCritical", 0.5);
+        double colorCosmetic = getMagnitudeThreshold(cls, "colorCosmetic", 0.3);
+        double layoutCosmetic = getMagnitudeThreshold(cls, "layoutCosmetic", 0.1);
+
+        if (cls != null && cls.getInteractiveKeywords() != null && !cls.getInteractiveKeywords().isEmpty()) {
+            for (String kw : cls.getInteractiveKeywords()) {
+                if (kw != null && !kw.isEmpty() && element.contains(kw)) return "critical";
             }
+        } else { // fallback defaults
+            String[] defaults = {"button", "input", "form", "a", "select"};
+            for (String kw : defaults) if (element.contains(kw)) return "critical";
         }
-        
-        // Structural changes are always critical
-        if ("structural".equals(changeType)) {
-            return "critical";
+
+        if ("structural".equals(changeType) || property.startsWith("element_")) return "critical";
+        if (property.contains("aria") || property.contains("alt") || property.contains("role")) return "critical";
+
+        if ("text".equals(property) || "text".equals(changeType)) {
+            if (magnitude >= textCritical) return "critical";
+            return magnitude >= (textCritical / 2.0) ? "cosmetic" : "noise";
         }
-        
-        // Significant text changes
-        if ("text".equals(property) && magnitude > 0.5) {
-            return "critical";
+        if ("layout".equals(changeType) || property.startsWith("position_")) {
+            return magnitude >= layoutCosmetic ? "cosmetic" : "noise";
         }
-        
-        // Visual property changes
-        if (property.equals("color") || property.equals("background-color") || property.equals("font-family")) {
-            return magnitude > 0.3 ? "cosmetic" : "noise";
+        if (property.equals("color") || property.equals("background-color") || property.contains("font-family")) {
+            return magnitude >= colorCosmetic ? "cosmetic" : "noise";
         }
-        
-        // Layout changes
-        if (changeType.equals("layout") || property.startsWith("position_")) {
-            return magnitude > 0.1 ? "cosmetic" : "noise";
+        if (changeType.startsWith("style_")) {
+            if (magnitude >= 0.6) return "critical";
+            if (magnitude >= 0.2) return "cosmetic";
+            return "noise";
         }
-        
-        // Minor style changes
-        if (property.contains("font-size") || property.contains("margin") || property.contains("padding")) {
-            return magnitude < 0.3 ? "noise" : "cosmetic";
+
+        boolean advanced = flags != null && Boolean.TRUE.equals(flags.getEnableAdvancedClassification());
+        if (advanced && cls != null && cls.getRules() != null) {
+            String ruleResult = applyRuleEngine(change, cls);
+            if (ruleResult != null) return ruleResult;
         }
-        
-        // Default to noise for minor changes
         return "noise";
     }
     
@@ -741,6 +753,32 @@ public class ChangeDetector {
         if (a == null || b == null) return false;
         return a.equals(b);
     }
+
+    // ===================== Config Helpers =====================
+    private double getMagnitudeThreshold(ProjectConfig.ClassificationSettings cls, String key, double defVal) {
+        if (cls == null || cls.getMagnitudeThresholds() == null) return defVal;
+        Double v = cls.getMagnitudeThresholds().get(key);
+        return v != null ? v : defVal;
+    }
+
+    private String applyRuleEngine(ElementChange change, ProjectConfig.ClassificationSettings cls) {
+        for (Map<String, Object> rule : cls.getRules()) {
+            if (rule == null) continue;
+            String propertyContains = getString(rule, "propertyContains");
+            String changeTypeEquals = getString(rule, "changeType");
+            Double minMagnitude = getDouble(rule, "minMagnitude");
+            String classification = getString(rule, "classification");
+            boolean match = true;
+            if (propertyContains != null && (change.getProperty() == null || !change.getProperty().contains(propertyContains))) match = false;
+            if (changeTypeEquals != null && (change.getChangeType() == null || !change.getChangeType().equals(changeTypeEquals))) match = false;
+            if (minMagnitude != null && change.getMagnitude() < minMagnitude) match = false;
+            if (match && classification != null) return classification;
+        }
+        return null;
+    }
+
+    private String getString(Map<String, Object> map, String key) { Object v = map.get(key); return v instanceof String ? (String) v : null; }
+    private Double getDouble(Map<String, Object> map, String key) { Object v = map.get(key); return v instanceof Number ? ((Number) v).doubleValue() : null; }
     
     /**
      * Get the current list of detected changes
