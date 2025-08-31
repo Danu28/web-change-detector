@@ -473,32 +473,47 @@ public class DOMCSSCrawler {
             String directText = (String) ((JavascriptExecutor) driver).executeScript(directTextScript, element);
             
             // If no direct text but element has text and no child elements with text, use full text
-            if (directText == null || directText.isEmpty()) {
-                String fullText = element.getText().trim();
-                
-                if (!fullText.isEmpty()) {
-                    // Check if this element has child elements with text
-                    String hasTextChildrenScript = 
-                        "var element = arguments[0];" +
-                        "var children = element.children;" +
-                        "for (var i = 0; i < children.length; i++) {" +
-                        "    if (children[i].textContent && children[i].textContent.trim()) {" +
-                        "        return true;" +
-                        "    }" +
-                        "}" +
-                        "return false;";
-                    
-                    Boolean hasTextChildren = (Boolean) ((JavascriptExecutor) driver).executeScript(hasTextChildrenScript, element);
-                    
-                    // Only use full text if no children have text (leaf text element)
-                    if (hasTextChildren != null && !hasTextChildren) {
-                        return fullText;
-                    }
-                }
-            } else {
-                return directText;
+            if (directText != null && !directText.isEmpty()) {
+                return directText; // simple case
             }
-            
+
+            // Fallback logic: handle cases where original text was wrapped in a new inline element (e.g., <strong>)
+            // We want the parent element to still expose a stable text value so text diffs are not misclassified as removals.
+            String fullText = element.getText() != null ? element.getText().trim() : "";
+            if (fullText.isEmpty()) {
+                return ""; // nothing to do
+            }
+
+            // Determine if all child elements are inline formatting wrappers so we can safely flatten.
+            String allInlineScript = "var el=arguments[0];" +
+                "if(!el.children || el.children.length===0) return false;" +
+                "var inline=['STRONG','EM','B','I','SPAN','SMALL','SUP','SUB','A','MARK','CODE'];" +
+                "for(var i=0;i<el.children.length;i++){" +
+                "  var tag=el.children[i].tagName;" +
+                "  if(inline.indexOf(tag)===-1) return false;" +
+                "}" +
+                "return true;";
+            Boolean allInline = (Boolean) ((JavascriptExecutor) driver).executeScript(allInlineScript, element);
+
+            // Also detect if children have text at all
+            String hasTextChildrenScript = 
+                "var element = arguments[0];" +
+                "var children = element.children;" +
+                "for (var i = 0; i < children.length; i++) {" +
+                "    if (children[i].textContent && children[i].textContent.trim()) {" +
+                "        return true;" +
+                "    }" +
+                "}" +
+                "return false;";
+            Boolean hasTextChildren = (Boolean) ((JavascriptExecutor) driver).executeScript(hasTextChildrenScript, element);
+
+            // If children have text and are all inline wrappers, or total text length is short (likely a label/price), use fullText.
+            final int INLINE_TEXT_FALLBACK_MAX_LEN = 120; // guard against large container duplication
+            if ((Boolean.TRUE.equals(allInline) || (Boolean.TRUE.equals(hasTextChildren) && fullText.length() <= INLINE_TEXT_FALLBACK_MAX_LEN))) {
+                return fullText;
+            }
+
+            // Else keep it empty to avoid large duplicated ancestor text
             return "";
         } catch (Exception e) {
             logger.error("Error extracting direct text: {}", e.getMessage());

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Enhanced Current Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin:0; padding:24px; color:#222; }
+        header { background:#2e7d32; color:#fff; padding:20px 24px; } /* color + padding change */
+        .layout { display:flex; gap:28px; align-items:flex-start; } /* gap change */
+        nav { width:200px; } /* width change */
+        nav ul { list-style:none; padding:0; margin:0; }
+        nav li { margin:6px 0; }
+        nav a { color:#2e7d32; text-decoration:none; }
+        nav a.active { font-weight:bold; }
+        main { flex:1; }
+        .banner { background:#dff7e3; border:1px solid #a0e6b1; padding:14px; margin-bottom:24px; } /* color + padding change */
+        .promo { background:#1b5e20; color:#fff; padding:14px; border-radius:6px; margin-bottom:24px; } /* style changes */
+        .products { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px,1fr)); gap:20px; }
+        .card { border:1px solid #ccc; border-radius:8px; padding:14px; position:relative; box-shadow:0 2px 4px rgba(0,0,0,.15); }
+        .card h3 { margin:6px 0 8px; font-size:18px; }
+        .price { font-size:16px; margin:4px 0 8px; }
+        .price small { color:#888; }
+        .btn { background:#2e7d32; color:#fff; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; }
+        .btn.secondary { background:#444; }
+        .tag { display:inline-block; background:#e0f2f1; padding:2px 6px; font-size:11px; border-radius:3px; margin-right:4px; }
+        footer { margin-top:48px; text-align:center; font-size:12px; color:#666; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Store Catalog Spring</h1> <!-- text change -->
+</header>
+<div class="layout">
+    <nav>
+        <ul>
+            <li><a class="active" href="#home">Home</a></li>
+            <li><a href="#new">New</a></li>
+            <li><a href="#sales">Sales</a></li>
+            <li><a href="#clearance">Clearance</a></li> <!-- new nav item -->
+        </ul>
+    </nav>
+    <main>
+        <div class="banner" id="season-banner">Winter Sale Ends Soon</div> <!-- text change -->
+        <div class="promo" id="promo-box" data-promo="spring15">Use code SPRING15 for 15% OFF</div> <!-- attribute + text change -->
+        <section class="products" id="product-grid">
+            <!-- Text change + added wrapper strong -->
+            <div class="card" id="prod-price-change">
+                <h3>Noise Cancelling Headphones</h3>
+                <p class="price"><strong>$54.99</strong></p> <!-- price increased and wrapped -->
+                <button class="btn" id="btn-headphones" aria-label="Add product">Add to Cart</button> <!-- aria + text change -->
+            </div>
+            <!-- Wrapper added only (no text change) -->
+            <div class="card" id="prod-wrapper-only">
+                <h3>USB-C Cable</h3>
+                <p class="price"><span>$9.99</span></p> <!-- same value wrapped -->
+                <button class="btn" id="btn-cable" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Split price both parts changed -->
+            <div class="card" id="prod-split-price">
+                <h3>Portable Charger</h3>
+                <p class="price"><strong>$62</strong><sup>.49</sup></p> <!-- changed 59 -> 62 and .99 -> .49 -->
+                <button class="btn" id="btn-charger" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Removed element prod-removed replaced by new product -->
+            <div class="card" id="prod-new">
+                <h3>4K Action Camera</h3>
+                <p class="price"><strong>$129.00</strong></p>
+                <button class="btn" id="btn-actioncam" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Minor punctuation + whitespace change (should classify low magnitude) -->
+            <div class="card" id="prod-minor-text">
+                <h3>Desk Lamp</h3>
+                <p class="price">$24.00</p>
+                <p class="desc" id="desc-lamp">Free shipping available!</p>
+                <button class="btn" id="btn-lamp" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- New product with dynamic attributes -->
+            <div class="card" id="prod-dynamic" data-sku="DYN-001" data-track="true">
+                <h3>Smart Thermostat <span class="tag">NEW</span></h3>
+                <p class="price">$199.00</p>
+                <button class="btn secondary" id="btn-thermostat" aria-label="Add item">Add to Cart</button>
+            </div>
+        </section>
+    </main>
+</div>
+<footer>&copy; 2025 Catalog Corp. All rights reserved.</footer>
+</body>
+</html>

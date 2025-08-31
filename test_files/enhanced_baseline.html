@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Enhanced Baseline Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin:0; padding:20px; color:#222; }
+        header { background:#4285f4; color:#fff; padding:16px 24px; }
+        .layout { display:flex; gap:20px; align-items:flex-start; }
+        nav { width:180px; }
+        nav ul { list-style:none; padding:0; margin:0; }
+        nav li { margin:6px 0; }
+        nav a { color:#4285f4; text-decoration:none; }
+        nav a.active { font-weight:bold; }
+        main { flex:1; }
+        .banner { background:#e8f1fe; border:1px solid #c4dafc; padding:12px; margin-bottom:20px; }
+        .promo { background:#1976d2; color:#fff; padding:10px; border-radius:4px; margin-bottom:20px; }
+        .products { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:16px; }
+        .card { border:1px solid #ddd; border-radius:4px; padding:12px; position:relative; }
+        .card.removable { background:#fffdf2; }
+        .card h3 { margin:6px 0 8px; font-size:18px; }
+        .price { font-size:16px; margin:4px 0 8px; }
+        .price small { color:#666; }
+        .btn { background:#4285f4; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
+        .btn.secondary { background:#555; }
+        .tag { display:inline-block; background:#f1f3f4; padding:2px 6px; font-size:11px; border-radius:3px; margin-right:4px; }
+        footer { margin-top:40px; text-align:center; font-size:12px; color:#777; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Store Catalog Q1</h1>
+</header>
+<div class="layout">
+    <nav>
+        <ul>
+            <li><a class="active" href="#home">Home</a></li>
+            <li><a href="#new">New</a></li>
+            <li><a href="#sales">Sales</a></li>
+        </ul>
+    </nav>
+    <main>
+        <div class="banner" id="season-banner">Winter Sale Starts Soon</div>
+        <div class="promo" id="promo-box" data-promo="winter10">Use code WINTER10 for 10% off</div>
+        <section class="products" id="product-grid">
+            <!-- Text change + wrapper added in current -->
+            <div class="card" id="prod-price-change">
+                <h3>Noise Cancelling Headphones</h3>
+                <p class="price">$49.99</p>
+                <button class="btn" id="btn-headphones" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Wrapper will be added around same text (should NOT be a text change) -->
+            <div class="card" id="prod-wrapper-only">
+                <h3>USB-C Cable</h3>
+                <p class="price">$9.99</p>
+                <button class="btn" id="btn-cable" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Split price (strong + sup) values both change later -->
+            <div class="card" id="prod-split-price">
+                <h3>Portable Charger</h3>
+                <p class="price"><strong>$59</strong><sup>.99</sup></p>
+                <button class="btn" id="btn-charger" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Element removed in current -->
+            <div class="card removable" id="prod-removed">
+                <h3>Legacy Webcam</h3>
+                <p class="price">$29.99 <small>Clearance</small></p>
+                <button class="btn secondary" id="btn-webcam" aria-label="Add item">Add to Cart</button>
+            </div>
+            <!-- Text will change slightly (punctuation/whitespace) -->
+            <div class="card" id="prod-minor-text">
+                <h3>Desk Lamp</h3>
+                <p class="price">$24.00</p>
+                <p class="desc" id="desc-lamp">Free shipping available</p>
+                <button class="btn" id="btn-lamp" aria-label="Add item">Add to Cart</button>
+            </div>
+        </section>
+    </main>
+</div>
+<footer>&copy; 2025 Catalog Corp. All rights reserved.</footer>
+</body>
+</html>
