@@ -82,33 +82,55 @@ public class DOMCSSCrawler {
         ProjectConfig projectConfig = configuration != null ? configuration.getProjectConfig() : null;
         ProjectConfig.CrawlerSettings crawlerSettings = projectConfig != null ? projectConfig.getCrawlerSettings() : null;
 
-        // CSS properties precedence: crawlerSettings.cssProperties -> captureSettings.stylesToCapture -> default list
-        if (crawlerSettings != null && crawlerSettings.getCssProperties() != null && !crawlerSettings.getCssProperties().isEmpty()) {
-            this.cssProperties = new HashSet<>(crawlerSettings.getCssProperties());
-            logger.info("Using {} CSS properties (crawlerSettings)", cssProperties.size());
-        } else if (projectConfig != null && projectConfig.getCaptureSettings() != null &&
-                projectConfig.getCaptureSettings().getStylesToCapture() != null &&
-                !projectConfig.getCaptureSettings().getStylesToCapture().isEmpty()) {
-            this.cssProperties = new HashSet<>(projectConfig.getCaptureSettings().getStylesToCapture());
-            logger.info("Using {} CSS properties (captureSettings)", cssProperties.size());
-        } else {
-            this.cssProperties = new HashSet<>(Arrays.asList(
-                    "color", "background-color", "font-size", "font-weight", "display",
-                    "visibility", "position", "width", "height", "margin", "padding",
-                    "border", "text-align", "line-height", "opacity", "z-index"));
-            logger.warn("Using default CSS properties (no config provided)");
-        }
+        // Unified capture precedence logic:
+        // 1. If crawlerSettings unified fields (stylesToCapture / attributesToCapture) present -> base list.
+        // 2. Merge in legacy crawlerSettings.cssProperties / attributesToExtract (deprecated names) if not already included.
+        // 3. Merge in captureSettings.stylesToCapture / attributesToCapture.
+        // 4. If still empty use defaults.
+        Set<String> styleSet = new HashSet<>();
+        Set<String> attrSet = new HashSet<>();
 
-        // Attributes to extract precedence: crawlerSettings.attributesToExtract -> captureSettings.attributesToCapture -> default set
-        if (crawlerSettings != null && crawlerSettings.getAttributesToExtract() != null && !crawlerSettings.getAttributesToExtract().isEmpty()) {
-            this.attributesToExtract = new ArrayList<>(crawlerSettings.getAttributesToExtract());
-        } else if (projectConfig != null && projectConfig.getCaptureSettings() != null &&
-                projectConfig.getCaptureSettings().getAttributesToCapture() != null &&
-                !projectConfig.getCaptureSettings().getAttributesToCapture().isEmpty()) {
-            this.attributesToExtract = new ArrayList<>(projectConfig.getCaptureSettings().getAttributesToCapture());
-        } else {
-            this.attributesToExtract = Arrays.asList("id", "class", "aria-label", "alt", "href", "src", "type", "role");
+        if (crawlerSettings != null && crawlerSettings.getStylesToCapture() != null) {
+            styleSet.addAll(crawlerSettings.getStylesToCapture());
         }
+        if (crawlerSettings != null && crawlerSettings.getCssProperties() != null) {
+            // deprecated alias; merge but log if introducing new props
+            for (String p : crawlerSettings.getCssProperties()) {
+                if (styleSet.add(p)) {
+                    logger.debug("Added style from deprecated cssProperties: {}", p);
+                }
+            }
+        }
+    // legacy captureSettings removed – no longer merging here
+        if (styleSet.isEmpty()) {
+            styleSet.addAll(Arrays.asList(
+                "color","background-color","font-size","font-weight","display","visibility",
+                "position","width","height","margin","padding","border","text-align",
+                "line-height","opacity","z-index","box-shadow","border-radius","gap"));
+            logger.warn("Using default CSS properties (no explicit styles configured)");
+        }
+        this.cssProperties = styleSet;
+        logger.info("Effective CSS properties ({}): {}", cssProperties.size(), String.join(",", cssProperties));
+
+        if (crawlerSettings != null && crawlerSettings.getAttributesToCapture() != null) {
+            attrSet.addAll(crawlerSettings.getAttributesToCapture());
+        }
+        if (crawlerSettings != null && crawlerSettings.getAttributesToExtract() != null) {
+            for (String a : crawlerSettings.getAttributesToExtract()) {
+                if (attrSet.add(a)) {
+                    logger.debug("Added attribute from deprecated attributesToExtract: {}", a);
+                }
+            }
+        }
+    // legacy captureSettings removed – no longer merging attributes
+        if (attrSet.isEmpty()) {
+            attrSet.addAll(Arrays.asList("id","class","aria-label","alt","href","src","type","role","data-testid"));
+            logger.warn("Using default attribute list (no explicit attributes configured)");
+        }
+        // Always ensure we capture generic aria-* and data-* even if not listed explicitly
+        // They will be handled during extraction if pattern-based logic is added.
+        this.attributesToExtract = new ArrayList<>(attrSet);
+        logger.info("Effective attributes ({}): {}", attributesToExtract.size(), String.join(",", attributesToExtract));
 
         // Visibility filter & throttle
         if (crawlerSettings != null && crawlerSettings.getVisibilityFilter() != null) {
@@ -485,15 +507,19 @@ public class DOMCSSCrawler {
             }
 
             // Determine if all child elements are inline formatting wrappers so we can safely flatten.
+            // Treat only formatting wrappers (exclude interactive <A>) as inline for flattening.
             String allInlineScript = "var el=arguments[0];" +
                 "if(!el.children || el.children.length===0) return false;" +
-                "var inline=['STRONG','EM','B','I','SPAN','SMALL','SUP','SUB','A','MARK','CODE'];" +
+                "var inline=['STRONG','EM','B','I','SPAN','SMALL','SUP','SUB','MARK','CODE'];" +
                 "for(var i=0;i<el.children.length;i++){" +
                 "  var tag=el.children[i].tagName;" +
                 "  if(inline.indexOf(tag)===-1) return false;" +
                 "}" +
                 "return true;";
             Boolean allInline = (Boolean) ((JavascriptExecutor) driver).executeScript(allInlineScript, element);
+
+            String hasAnchorChildScript = "var el=arguments[0]; if(!el.children) return false; for(var i=0;i<el.children.length;i++){ if(el.children[i].tagName==='A') return true;} return false;";
+            Boolean hasAnchorChild = (Boolean) ((JavascriptExecutor) driver).executeScript(hasAnchorChildScript, element);
 
             // Also detect if children have text at all
             String hasTextChildrenScript = 
@@ -509,7 +535,7 @@ public class DOMCSSCrawler {
 
             // If children have text and are all inline wrappers, or total text length is short (likely a label/price), use fullText.
             final int INLINE_TEXT_FALLBACK_MAX_LEN = 120; // guard against large container duplication
-            if ((Boolean.TRUE.equals(allInline) || (Boolean.TRUE.equals(hasTextChildren) && fullText.length() <= INLINE_TEXT_FALLBACK_MAX_LEN))) {
+            if (!Boolean.TRUE.equals(hasAnchorChild) && (Boolean.TRUE.equals(allInline) || (Boolean.TRUE.equals(hasTextChildren) && fullText.length() <= INLINE_TEXT_FALLBACK_MAX_LEN))) {
                 return fullText;
             }
 

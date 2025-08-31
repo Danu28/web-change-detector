@@ -313,8 +313,29 @@ public class EnhancedUITesterMain {
                 changes.add(change);
             }
 
+            // Prune duplicate ancestor text modifications (noise reduction)
+            pruneAncestorTextDuplicates(changes);
+
             logger.info("✅ {} changes detected", changes.size());
             return changes;
+        }
+
+        private void pruneAncestorTextDuplicates(List<ElementChange> changes) {
+            if (changes == null || changes.isEmpty()) return;
+            List<ElementChange> textChanges = new ArrayList<>();
+            for (ElementChange c : changes) if ("TEXT_MODIFICATION".equals(c.getChangeType())) textChanges.add(c);
+            List<ElementChange> toRemove = new ArrayList<>();
+            java.util.function.Function<String,String> normSel = sel -> sel == null ? "" : sel.replaceAll(":nth-of-type\\(\\d+\\)", "").replaceAll("\\s+", " ").trim();
+            java.util.function.BiFunction<String,String,Boolean> isAncestor = (a,b) -> {
+                if (a == null || b == null) return false; if (a.equals(b)) return false; String na = normSel.apply(a); String nb = normSel.apply(b); if (nb.contains(na) && !na.isEmpty()) return true; return nb.startsWith(na + " >") || nb.startsWith(na + " "); };
+            for (int i=0;i<textChanges.size();i++) {
+                ElementChange a = textChanges.get(i); String aOld = a.getOldValue()==null?"":a.getOldValue(); String aNew = a.getNewValue()==null?"":a.getNewValue(); if (aOld.isEmpty()||aNew.isEmpty()) continue;
+                for (int j=0;j<textChanges.size();j++){ if(i==j) continue; ElementChange b=textChanges.get(j); String bOld=b.getOldValue()==null?"":b.getOldValue(); String bNew=b.getNewValue()==null?"":b.getNewValue(); if(bOld.isEmpty()||bNew.isEmpty()) continue; boolean aAnc=isAncestor.apply(a.getElement(), b.getElement()); boolean bAnc=isAncestor.apply(b.getElement(), a.getElement()); if(!aAnc && !bAnc) continue; if(aAnc && aOld.contains(bOld) && aNew.contains(bNew) && (aOld.length()>bOld.length()||aNew.length()>bNew.length())) { toRemove.add(a); continue;} if(bAnc && bOld.contains(aOld) && bNew.contains(aNew) && (bOld.length()>aOld.length()||bNew.length()>aNew.length())) { toRemove.add(b);} }
+            }
+            // Token-based second pass
+            List<ElementChange> survivors = new ArrayList<>(textChanges); survivors.removeAll(toRemove);
+            for (ElementChange leaf : new ArrayList<>(survivors)) { String leafOld=leaf.getOldValue(); String leafNew=leaf.getNewValue(); if(leafOld==null||leafNew==null) continue; if(leafOld.length()>60||leafNew.length()>60) continue; for(ElementChange other:survivors){ if(leaf==other) continue; if(toRemove.contains(other)) continue; String oOld=other.getOldValue(); String oNew=other.getNewValue(); if(oOld==null||oNew==null) continue; if(oOld.length()<=leafOld.length()) continue; if(oOld.contains(leafOld) && oNew.contains(leafNew)) toRemove.add(other); } }
+            if(!toRemove.isEmpty()){ changes.removeAll(new java.util.HashSet<>(toRemove)); logger.info("🧹 Pruned {} ancestor/aggregate duplicate text changes", toRemove.size()); }
         }
     }
 

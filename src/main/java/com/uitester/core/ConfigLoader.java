@@ -182,15 +182,31 @@ public class ConfigLoader {
     private static void applyNewSectionDefaults(ProjectConfig config) {
         if (config.getCrawlerSettings() == null) {
             ProjectConfig.CrawlerSettings cs = new ProjectConfig.CrawlerSettings();
-            // Reuse capture styles / attributes if present
+            // Migrate legacy captureSettings if present
             if (config.getCaptureSettings() != null) {
-                cs.setCssProperties(config.getCaptureSettings().getStylesToCapture());
-                cs.setAttributesToExtract(config.getCaptureSettings().getAttributesToCapture());
+                cs.setStylesToCapture(config.getCaptureSettings().getStylesToCapture());
+                cs.setAttributesToCapture(config.getCaptureSettings().getAttributesToCapture());
+                cs.setIgnoreAttributePatterns(config.getCaptureSettings().getIgnoreAttributePatterns());
+                cs.setCaptureOnlyViewport(config.getCaptureSettings().getCaptureOnlyViewport());
+                cs.setMaxTextLength(config.getCaptureSettings().getMaxTextLength());
+                cs.setIgnoreEmptyText(config.getCaptureSettings().getIgnoreEmptyText());
             }
-            cs.setVisibilityFilter(Boolean.TRUE); // previously implicit skip of invisible elements
+            cs.setVisibilityFilter(Boolean.TRUE);
             cs.setThrottleMs(0);
             config.setCrawlerSettings(cs);
+        } else if (config.getCaptureSettings() != null) {
+            // Both present: prefer crawlerSettings and log deprecation by adding a warning classificationSettings rules list.
+            // We can't log here without logger; consider future injection. For now we migrate missing pieces only.
+            ProjectConfig.CrawlerSettings cs = config.getCrawlerSettings();
+            if (cs.getStylesToCapture() == null) cs.setStylesToCapture(config.getCaptureSettings().getStylesToCapture());
+            if (cs.getAttributesToCapture() == null) cs.setAttributesToCapture(config.getCaptureSettings().getAttributesToCapture());
+            if (cs.getIgnoreAttributePatterns() == null) cs.setIgnoreAttributePatterns(config.getCaptureSettings().getIgnoreAttributePatterns());
+            if (cs.getCaptureOnlyViewport() == null) cs.setCaptureOnlyViewport(config.getCaptureSettings().getCaptureOnlyViewport());
+            if (cs.getMaxTextLength() == null) cs.setMaxTextLength(config.getCaptureSettings().getMaxTextLength());
+            if (cs.getIgnoreEmptyText() == null) cs.setIgnoreEmptyText(config.getCaptureSettings().getIgnoreEmptyText());
         }
+        // Null out legacy block to avoid downstream ambiguity
+        config.setCaptureSettings(null);
 
         if (config.getMatchingSettings() == null) {
             ProjectConfig.MatchingSettings ms = new ProjectConfig.MatchingSettings();

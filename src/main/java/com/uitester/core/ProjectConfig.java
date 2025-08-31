@@ -477,6 +477,15 @@ public class ProjectConfig {
         @JsonProperty("maxDepth") private Integer maxDepth; // optional future use
         @JsonProperty("throttleMs") private Integer throttleMs; // delay between element reads
 
+    // Unified (preferred) capture fields – allow specifying everything under crawlerSettings
+    // These mirror CaptureSettings to reduce confusion. If provided, they take precedence over legacy sections.
+    @JsonProperty("stylesToCapture") private List<String> stylesToCapture; // unified style list
+    @JsonProperty("attributesToCapture") private List<String> attributesToCapture; // unified attr list
+    @JsonProperty("ignoreAttributePatterns") private List<String> ignoreAttributePatterns; // unified ignore patterns
+    @JsonProperty("captureOnlyViewport") private Boolean captureOnlyViewport; // unified viewport flag
+    @JsonProperty("maxTextLength") private Integer maxTextLength; // unified text length limit
+    @JsonProperty("ignoreEmptyText") private Boolean ignoreEmptyText; // unified empty text flag
+
         public List<String> getCssProperties() { return cssProperties; }
         public void setCssProperties(List<String> cssProperties) { this.cssProperties = cssProperties; }
         public List<String> getAttributesToExtract() { return attributesToExtract; }
@@ -487,6 +496,20 @@ public class ProjectConfig {
         public void setMaxDepth(Integer maxDepth) { this.maxDepth = maxDepth; }
         public Integer getThrottleMs() { return throttleMs; }
         public void setThrottleMs(Integer throttleMs) { this.throttleMs = throttleMs; }
+
+    // Unified getters/setters
+    public List<String> getStylesToCapture() { return stylesToCapture; }
+    public void setStylesToCapture(List<String> stylesToCapture) { this.stylesToCapture = stylesToCapture; }
+    public List<String> getAttributesToCapture() { return attributesToCapture; }
+    public void setAttributesToCapture(List<String> attributesToCapture) { this.attributesToCapture = attributesToCapture; }
+    public List<String> getIgnoreAttributePatterns() { return ignoreAttributePatterns; }
+    public void setIgnoreAttributePatterns(List<String> ignoreAttributePatterns) { this.ignoreAttributePatterns = ignoreAttributePatterns; }
+    public Boolean getCaptureOnlyViewport() { return captureOnlyViewport; }
+    public void setCaptureOnlyViewport(Boolean captureOnlyViewport) { this.captureOnlyViewport = captureOnlyViewport; }
+    public Integer getMaxTextLength() { return maxTextLength; }
+    public void setMaxTextLength(Integer maxTextLength) { this.maxTextLength = maxTextLength; }
+    public Boolean getIgnoreEmptyText() { return ignoreEmptyText; }
+    public void setIgnoreEmptyText(Boolean ignoreEmptyText) { this.ignoreEmptyText = ignoreEmptyText; }
     }
 
     /** Element matching weights & thresholds */

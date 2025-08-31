@@ -159,9 +159,9 @@ public class ChangeDetector {
         // Get ignore patterns from configuration
         List<String> ignoreAttributePatterns = new ArrayList<>();
         if (configuration != null && configuration.getProjectConfig() != null &&
-            configuration.getProjectConfig().getCaptureSettings() != null &&
-            configuration.getProjectConfig().getCaptureSettings().getIgnoreAttributePatterns() != null) {
-            ignoreAttributePatterns = configuration.getProjectConfig().getCaptureSettings().getIgnoreAttributePatterns();
+            configuration.getProjectConfig().getCrawlerSettings() != null &&
+            configuration.getProjectConfig().getCrawlerSettings().getIgnoreAttributePatterns() != null) {
+            ignoreAttributePatterns = configuration.getProjectConfig().getCrawlerSettings().getIgnoreAttributePatterns();
         }
         
         for (String attr : allAttrs) {
@@ -274,9 +274,9 @@ public class ChangeDetector {
         // Only track position if position-x/position-y are in stylesToCapture
         List<String> stylesToCapture = new ArrayList<>();
         if (configuration != null && configuration.getProjectConfig() != null &&
-            configuration.getProjectConfig().getCaptureSettings() != null &&
-            configuration.getProjectConfig().getCaptureSettings().getStylesToCapture() != null) {
-            stylesToCapture = configuration.getProjectConfig().getCaptureSettings().getStylesToCapture();
+            configuration.getProjectConfig().getCrawlerSettings() != null &&
+            configuration.getProjectConfig().getCrawlerSettings().getStylesToCapture() != null) {
+            stylesToCapture = configuration.getProjectConfig().getCrawlerSettings().getStylesToCapture();
         }
         
         Map<String, Object> oldPosition = oldElement.getPosition();
@@ -578,6 +578,9 @@ public class ChangeDetector {
         logger.info("Phase 2 enhanced detection complete: {} total changes, {} matched pairs, {} removed, {} added",
                    changes.size(), matchResult.getMatchedPairs().size(), 
                    matchResult.getRemovedElements().size(), matchResult.getAddedElements().size());
+
+    // Post-processing: prune ancestor text duplicates where ancestor text diff fully contains a single descendant text diff
+    pruneAncestorTextDuplicates();
         
         return new ArrayList<>(changes);
     }
@@ -763,6 +766,77 @@ public class ChangeDetector {
         }
         
         return changes;
+    }
+
+    /**
+     * Remove redundant ancestor TEXT_MODIFICATION changes whose old/new values are supersets of an identical single descendant change.
+     * Heuristic: If two text changes share overlapping text and one old/new strictly contains the other's old/new
+     * and their selectors indicate an ancestor (> relationship), drop the ancestor to reduce noise.
+     */
+    private void pruneAncestorTextDuplicates() {
+        if (changes == null || changes.isEmpty()) return;
+        List<ElementChange> textChanges = new ArrayList<>();
+        for (ElementChange c : changes) if ("TEXT_MODIFICATION".equals(c.getChangeType())) textChanges.add(c);
+        List<ElementChange> toRemove = new ArrayList<>();
+
+        // Helper lambdas
+        java.util.function.Function<String,String> normSel = sel -> sel == null ? "" : sel.replaceAll(":nth-of-type\\(\\d+\\)", "").replaceAll("\\s+", " ").trim();
+        java.util.function.BiFunction<String,String,Boolean> isAncestor = (a,b) -> {
+            if (a.isEmpty() || b.isEmpty()) return false;
+            if (a.equals(b)) return false;
+            String na = normSel.apply(a); String nb = normSel.apply(b);
+            if (nb.contains(na) && !na.isEmpty()) return true; // relaxed containment after normalization
+            // prefix forms with combinator
+            return nb.startsWith(na + " >") || nb.startsWith(na + " ");
+        };
+
+        // First pass: direct ancestor containment based on selector & text containment
+        for (int i = 0; i < textChanges.size(); i++) {
+            ElementChange a = textChanges.get(i);
+            String aOld = a.getOldValue() == null ? "" : a.getOldValue();
+            String aNew = a.getNewValue() == null ? "" : a.getNewValue();
+            if (aOld.isEmpty() || aNew.isEmpty()) continue;
+            for (int j = 0; j < textChanges.size(); j++) {
+                if (i == j) continue;
+                ElementChange b = textChanges.get(j);
+                String bOld = b.getOldValue() == null ? "" : b.getOldValue();
+                String bNew = b.getNewValue() == null ? "" : b.getNewValue();
+                if (bOld.isEmpty() || bNew.isEmpty()) continue;
+                boolean aAncestorOfB = isAncestor.apply(a.getElement(), b.getElement());
+                boolean bAncestorOfA = isAncestor.apply(b.getElement(), a.getElement());
+                if (!aAncestorOfB && !bAncestorOfA) continue;
+                if (aAncestorOfB && aOld.contains(bOld) && aNew.contains(bNew) && (aOld.length() > bOld.length() || aNew.length() > bNew.length())) {
+                    toRemove.add(a); continue; }
+                if (bAncestorOfA && bOld.contains(aOld) && bNew.contains(aNew) && (bOld.length() > aOld.length() || bNew.length() > aNew.length())) {
+                    toRemove.add(b); continue; }
+            }
+        }
+
+        // Second pass: token-diff grouping (retain smallest scope for same changed token pair)
+        // Identify candidate leaf pairs (shortest old/new strings)
+        List<ElementChange> survivors = new ArrayList<>(textChanges);
+        survivors.removeAll(toRemove);
+        for (ElementChange leaf : new ArrayList<>(survivors)) {
+            String leafOld = leaf.getOldValue();
+            String leafNew = leaf.getNewValue();
+            if (leafOld == null || leafNew == null) continue;
+            if (leafOld.length() > 60 || leafNew.length() > 60) continue; // heuristic focus
+            for (ElementChange other : survivors) {
+                if (leaf == other) continue;
+                if (toRemove.contains(other)) continue;
+                String oOld = other.getOldValue(); String oNew = other.getNewValue();
+                if (oOld == null || oNew == null) continue;
+                if (oOld.length() <= leafOld.length()) continue; // only prune larger containers
+                if (oOld.contains(leafOld) && oNew.contains(leafNew)) {
+                    toRemove.add(other);
+                }
+            }
+        }
+
+        if (!toRemove.isEmpty()) {
+            changes.removeAll(new HashSet<>(toRemove));
+            logger.info("Pruned {} ancestor/aggregate duplicate text changes (enhanced)", toRemove.size());
+        }
     }
     
     /**
